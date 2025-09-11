@@ -77,9 +77,9 @@ const Navbar = () => {
               Watchlist
             </Link>
             <Link 
-              href="/dashboard" 
+              href="/Dashboard" 
               className={`font-medium transition-colors px-3 py-2 ${
-                pathname === '/dashboard' 
+                pathname === '/Dashboard' 
                   ? 'text-gray-900 font-semibold border-b-2 border-gray-800' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
