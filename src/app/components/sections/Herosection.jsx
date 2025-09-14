@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Play } from 'lucide-react';
 import LiveStatistics from './LiveStatistics';
 
+
 const HeroSection = () => {
   const [timeLeft, setTimeLeft] = useState({
     days: 2,
@@ -176,6 +177,9 @@ const HeroSection = () => {
             </div>
           </div>
         </div>
+
+        {/* Auction Items Section */}
+        
       </div>
     </div>
   );

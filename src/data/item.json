@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "title": "iPhone 14 Pro",
+    "description": "256GB, Deep Purple, excellent condition.",
+    "price": 1200,
+    "seller": "John Doe",
+    "image": "/iphone 14.jpg"
+  },
+  {
+    "id": 2,
+    "title": "ASUS ROG Gaming Laptop",
+    "description": "RTX 4070, 16GB RAM, 1TB SSD.",
+    "price": 1800,
+    "seller": "Alice Smith",
+    "image": "/images/laptop.jpg"
+  },
+  {
+    "id": 3,
+    "title": "Rolex Submariner",
+    "description": "Original Rolex Submariner, mint condition.",
+    "price": 9500,
+    "seller": "Michael Brown",
+    "image": "/images/rolex.jpg"
+  },
+  {
+    "id": 4,
+    "title": "Monalisa Backpack",
+    "description": "Monalisa Backpack, limited edition.",
+    "price": 250,
+    "seller": "Emily Davis",
+    "image": "/images/monalisa_backpack.jpg"
+  },
+  {
+    "id": 5,
+    "title": "Tesla Model 3",
+    "description": "Electric sedan with autopilot features.",
+    "price": 35000,
+    "seller": "Alice Smith",
+    "image": "/images/tesla_model_3.jpg"
+  },
+  {
+    "id": 6,
+    "title": "Rolls Royce",
+    "description": "Luxury sedan with top-notch features.",
+    "price": 200000,
+    "seller": "John Doe",
+    "image": "/images/rolls_royce.jpg"
+  }
+]
