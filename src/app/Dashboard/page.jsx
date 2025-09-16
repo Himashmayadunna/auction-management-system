@@ -6,6 +6,7 @@ export default function Dashboard() {
   return (
     <div className="p-6 min-h-screen bg-gray-100">
       {/* Welcome Section */}
+    <div className="max-w-7xl mx-auto px-6 py-16">
       <div className="bg-[#1B2641] text-white p-6 rounded-lg mb-6 flex items-center">
         <div className="flex-1">
           <div className="flex items-center gap-4">
@@ -118,6 +119,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }
