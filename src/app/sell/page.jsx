@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
 export default function SellPage() {
-  const [step, setStep] = useState(1); // start at step 1
+  const [step, setStep] = useState(2); // set to 2 for testing Step 2 layout; change to 1 if you want default start
   const [images, setImages] = useState([]);
-  const [condition, setCondition] = useState('');
+  const [condition, setCondition] = useState('Very Good - Light wear'); // default as requested
   const [features, setFeatures] = useState({
     authenticity: false,
     returns: false,
@@ -36,9 +36,12 @@ export default function SellPage() {
   }, [step]);
 
   const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files).slice(0, 10); // limit to 10
     const imageUrls = files.map((file) => URL.createObjectURL(file));
-    setImages((prev) => [...prev, ...imageUrls]);
+    setImages((prev) => {
+      const combined = [...prev, ...imageUrls];
+      return combined.slice(0, 10);
+    });
   };
 
   const removeImage = (index) => {
@@ -81,51 +84,39 @@ export default function SellPage() {
     return true;
   };
 
+  // labels/subtitles per step (for the outside heading)
+  const pageHead = {
+    1: { title: 'Basic Info', subtitle: 'Title, description, category' },
+    2: { title: 'Images & Details', subtitle: 'Photos, condition, specifications' },
+    3: { title: 'Pricing & Timing', subtitle: 'Starting bid, duration, shipping' },
+    4: { title: 'Review & Publish', subtitle: 'Final review before going live' },
+  }[step];
+
   // Stepper component: fixed container width; shows circles and lines with left-half bold behavior
   function Stepper({ current }) {
     const steps = [1, 2, 3, 4];
     return (
-      // increased top margin to give more space between header and stepper
-      <div className="w-full flex justify-center mt-8 mb-6">
+      <div className="w-full flex justify-center mt-10 mb-6">
         <div className="w-[900px] px-6 flex items-center">
           {steps.map((s, idx) => {
             const isActive = current === s;
             const isCompleted = current > s;
             return (
               <div key={s} className="flex items-center">
-                {/* Circle */}
                 <div
                   onClick={() => goToStep(s)}
                   className={`cursor-pointer w-10 h-10 rounded-full flex items-center justify-center font-semibold text-base transition-all ${
-                    isActive || isCompleted
-                      ? 'bg-[#1e2b44] text-white shadow-md'
-                      : 'bg-white text-gray-400 border border-gray-200'
+                    isActive || isCompleted ? 'bg-[#1e2b44] text-white shadow-md' : 'bg-white text-gray-400 border border-gray-200'
                   }`}
-                  aria-current={isActive}
                 >
                   {s}
                 </div>
 
-                {/* Line to next (render for all but last) */}
                 {idx !== steps.length - 1 && (
                   <div className="flex items-center mx-4">
-                    {/* The line is two halves (left & right).
-                        left half bold when current >= s (active/completed),
-                        right half bold when current > s (fully completed).
-                    */}
                     <div className="w-36 h-1 flex">
-                      {/* left half */}
-                      <div
-                        className={`flex-1 h-1 transition-all ${
-                          current >= s ? 'bg-[#1e2b44]' : 'bg-gray-200'
-                        }`}
-                      />
-                      {/* right half */}
-                      <div
-                        className={`flex-1 h-1 transition-all ${
-                          current > s ? 'bg-[#1e2b44]' : 'bg-gray-200'
-                        }`}
-                      />
+                      <div className={`flex-1 h-1 transition-all ${current >= s ? 'bg-[#1e2b44]' : 'bg-gray-200'}`} />
+                      <div className={`flex-1 h-1 transition-all ${current > s ? 'bg-[#1e2b44]' : 'bg-gray-200'}`} />
                     </div>
                   </div>
                 )}
@@ -145,36 +136,29 @@ export default function SellPage() {
           <h1 className="text-[3rem] md:text-[3.25rem] font-bold text-white mb-4 leading-tight">
             Create Your Auction
           </h1>
-          <p className="text-lg md:text-xl text-white">
-            List your item and reach thousands of potential buyers worldwide
-          </p>
+          <p className="text-lg md:text-xl text-white">List your item and reach thousands of potential buyers worldwide</p>
         </div>
       </div>
 
-      {/* Stepper (fixed width) */}
+      {/* Stepper */}
       <Stepper current={step} />
 
-      {/* Page-level topic (outside the form) - serif font, a bit larger */}
+      {/* Page-level dynamic topic (outside the form) */}
       <div className="w-[900px] mx-auto text-center mb-6">
-        <h2
-          className="text-2xl md:text-3xl font-semibold"
-          style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}
-        >
-          Basic Info
+        {/* decreased sizes a bit */}
+        <h2 className="text-xl md:text-2xl font-semibold" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
+          {pageHead.title}
         </h2>
-        <p className="text-gray-600">Title, description, category</p>
+        <p className="text-gray-600">{pageHead.subtitle}</p>
       </div>
 
-      {/* Form container: fixed horizontal width  (900px), vertical flexible */}
+      {/* Form container (fixed width) */}
       <div className="w-[900px] mx-auto mt-8">
         <div className="bg-white p-8 shadow-md rounded-lg">
-          {/* Inside the form: inner topic (serif, a bit larger) */}
+          {/* Card heading inside the form (dynamic) - decreased size */}
           <div className="mb-6">
-            <h3
-              className="text-2xl md:text-3xl font-semibold"
-              style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}
-            >
-              Basic Information
+            <h3 className="text-xl md:text-2xl font-semibold" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
+              {step === 2 ? 'Images & Item Details' : step === 1 ? 'Basic Information' : step === 3 ? 'Pricing & Auction Settings' : 'Review Your Auction'}
             </h3>
           </div>
 
@@ -182,51 +166,26 @@ export default function SellPage() {
           {step === 1 && (
             <section>
               <div className="space-y-6">
-                {/* Auction Title */}
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Auction Title <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    placeholder="e.g., Vintage Rolex Submariner 1960s - Excellent Condition"
-                    className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
-                    maxLength={80}
-                  />
+                  <input type="text" name="title" value={formData.title} onChange={handleChange} placeholder="e.g., Vintage Rolex Submariner 1960s - Excellent Condition" className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" maxLength={80} />
                   <p className="text-sm text-gray-500 mt-1">{`${formData.title.length}/80 characters`}</p>
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Description <span className="text-red-500">*</span>
                   </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    placeholder="Provide detailed information about your item including history, condition, provenance, and any unique features..."
-                    className="w-full p-3 border border-gray-300 rounded text-base min-h-[150px] focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
-                    maxLength={5000}
-                  />
+                  <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Provide detailed information about your item including history, condition, provenance, and any unique features..." className="w-full p-3 border border-gray-300 rounded text-base min-h-[150px] focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" maxLength={5000} />
                   <p className="text-sm text-gray-500 mt-1">{`${formData.description.length}/5000 characters`}</p>
                 </div>
 
-                {/* Category & Location side-by-side */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Category <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
-                    >
+                    <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
+                    <select name="category" value={formData.category} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]">
                       <option value="">Select a category</option>
                       <option value="art">Art & Antiques</option>
                       <option value="watches">Watches & Jewelry</option>
@@ -242,90 +201,130 @@ export default function SellPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Location <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="location"
-                      value={formData.location}
-                      onChange={handleChange}
-                      placeholder="City, State/Country"
-                      className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
-                    />
+                    <label className="block text-sm font-medium mb-2">Location <span className="text-red-500">*</span></label>
+                    <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="City, State/Country" className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" />
                   </div>
                 </div>
 
-                {/* Tags */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Tags (Optional)</label>
-                  <input
-                    type="text"
-                    name="tags"
-                    value={formData.tags}
-                    onChange={handleChange}
-                    placeholder="vintage, luxury, collectible, rare (comma separated)"
-                    className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
-                  />
+                  <input type="text" name="tags" value={formData.tags} onChange={handleChange} placeholder="vintage, luxury, collectible, rare (comma separated)" className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" />
                   <p className="text-sm text-gray-500 mt-1">Help buyers find your item with relevant keywords</p>
                 </div>
               </div>
             </section>
           )}
 
-          {/* Step 2 */}
+          {/* Step 2: Images top -> Condition middle -> Special Features bottom */}
           {step === 2 && (
             <section>
-              <h4 className="text-lg font-medium mb-4">Photos & Features</h4>
+              <div className="space-y-8">
+                {/* Photos (TOP) */}
+                <div>
+                  <label className="block text-sm font-medium mb-3">
+                    Photos <span className="text-red-500">*</span>
+                  </label>
 
-              <div className="mb-6">
-                <h5 className="font-medium mb-3">Upload Photos *</h5>
-                <div
-                  className="grid gap-4 mb-4"
-                  style={{
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                  }}
-                >
-                  {images.map((image, index) => (
-                    <div key={index} className="relative rounded-sm overflow-hidden">
-                      <Image src={image} alt={`Preview ${index + 1}`} width={100} height={100} unoptimized />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                      >
-                        &times;
-                      </button>
+                  <div className="flex flex-col md:flex-row md:items-start md:gap-6">
+                    {/* Left column: upload card + helper text (moved helper here) */}
+                    <div className="flex-shrink-0 flex flex-col items-start">
+                      <label className="flex items-center justify-center w-36 h-36 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:border-gray-400 bg-white">
+                        <input type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
+                        <div className="text-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto mb-2" width="32" height="24" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                          </svg>
+                          <div className="text-sm text-gray-600">Add Photo</div>
+                        </div>
+                      </label>
+
+                      {/* helper line shown under the upload card (always shown) */}
+                      <p className="text-sm text-gray-500 mt-3">Upload up to 10 high-quality images. First image will be the main photo.</p>
                     </div>
-                  ))}
-                  <label className="border-2 border-dashed border-gray-300 rounded-sm p-6 text-center cursor-pointer flex items-center justify-center hover:border-blue-600 hover:text-blue-600">
-                    <input type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
-                    <span>Add Photo</span>
-                  </label>
+
+                    {/* Right column: Previews (on desktop) or below (on mobile) */}
+                    <div className="mt-4 md:mt-0 flex-1 md:ml-6">
+                      <div className="flex flex-wrap gap-3 items-start">
+                        {images.length > 0 ? (
+                          images.map((src, i) => (
+                            <div key={i} className="relative w-28 h-20 rounded-md overflow-hidden border border-gray-200">
+                              <img src={src} alt={`preview-${i}`} className="object-cover w-full h-full" />
+                              <button onClick={() => removeImage(i)} className="absolute -top-2 -right-2 bg-white border border-gray-200 rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-sm">×</button>
+                            </div>
+                          ))
+                        ) : (
+                          // keep this area empty when no images (user requested removal of the "No photos uploaded yet." text)
+                          null
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mb-6">
-                <h5 className="font-medium mb-3">Condition *</h5>
-                <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full p-3 border border-gray-300 rounded">
-                  <option value="">Select item condition</option>
-                  <option value="new">New</option>
-                  <option value="like-new">Like New</option>
-                  <option value="used">Used</option>
-                  <option value="for-parts">For Parts</option>
-                </select>
-              </div>
-
-              <div>
-                <h5 className="font-medium mb-3">Special Features</h5>
-                {['authenticity', 'returns', 'premium'].map((f) => (
-                  <label key={f} className="flex items-center gap-2 mb-2">
-                    <input type="checkbox" checked={features[f]} onChange={(e) => setFeatures((prev) => ({ ...prev, [f]: e.target.checked }))} />
-                    <span>
-                      {f === 'authenticity' ? 'Authenticity Guarantee' : f === 'returns' ? 'Accept Returns (14-day)' : 'Premium Listing (+$25)'}
-                    </span>
+                {/* Condition (MIDDLE) */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Condition <span className="text-red-500">*</span>
                   </label>
-                ))}
+                  <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]">
+                    <option value="Mint - Perfect condition">Mint - Perfect condition</option>
+                    <option value="Excellent - Minor wear">Excellent - Minor wear</option>
+                    <option value="Very Good - Light wear">Very Good - Light wear</option>
+                    <option value="Good - Visible wear">Good - Visible wear</option>
+                    <option value="Fair - Heavy wear">Fair - Heavy wear</option>
+                    <option value="Poor - Significant damage">Poor - Significant damage</option>
+                  </select>
+                </div>
+
+                {/* Special Features (BOTTOM) */}
+                <div>
+                  <label className="block text-sm font-medium mb-3">Special Features</label>
+
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={features.authenticity}
+                        onChange={(e) => setFeatures((prev) => ({ ...prev, authenticity: e.target.checked }))}
+                        className={`mt-1 w-5 h-5 rounded-full border transition ${
+                          features.authenticity ? 'bg-[#1e2b44] border-[#1e2b44]' : 'border-gray-300'
+                        }`}
+                      />
+                      <div>
+                        <div className="font-medium">Authenticity Guarantee - Professionally verified</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={features.returns}
+                        onChange={(e) => setFeatures((prev) => ({ ...prev, returns: e.target.checked }))}
+                        className={`mt-1 w-5 h-5 rounded-full border transition ${
+                          features.returns ? 'bg-[#1e2b44] border-[#1e2b44]' : 'border-gray-300'
+                        }`}
+                      />
+                      <div>
+                        <div className="font-medium">Accept Returns - 14-day return policy</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={features.premium}
+                        onChange={(e) => setFeatures((prev) => ({ ...prev, premium: e.target.checked }))}
+                        className={`mt-1 w-5 h-5 rounded-full border transition ${
+                          features.premium ? 'bg-[#1e2b44] border-[#1e2b44]' : 'border-gray-300'
+                        }`}
+                      />
+                      <div>
+                        <div className="font-medium">Premium Listing - Featured placement (+$25)</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
               </div>
             </section>
           )}
@@ -333,18 +332,34 @@ export default function SellPage() {
           {/* Step 3 */}
           {step === 3 && (
             <section>
-              <h4 className="text-lg font-medium mb-4">Pricing & Timing</h4>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <input type="number" name="startingBid" value={formData.startingBid} onChange={handleChange} placeholder="Starting Bid *" className="p-3 border border-gray-300 rounded" />
-                <input type="number" name="reservePrice" value={formData.reservePrice} onChange={handleChange} placeholder="Reserve Price (Optional)" className="p-3 border border-gray-300 rounded" />
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Starting Bid <span className="text-red-500">*</span></label>
+                  <input type="number" name="startingBid" value={formData.startingBid} onChange={handleChange} placeholder="Starting Bid *" className="w-full p-3 border border-gray-300 rounded" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Reserve Price (Optional)</label>
+                    <input type="number" name="reservePrice" value={formData.reservePrice} onChange={handleChange} placeholder="Reserve Price (Optional)" className="w-full p-3 border border-gray-300 rounded" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Duration <span className="text-red-500">*</span></label>
+                    <select name="duration" value={formData.duration} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded">
+                      <option value="">Select Duration *</option>
+                      <option value="7">7 Days</option>
+                      <option value="10">10 Days</option>
+                      <option value="30">30 Days</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Shipping Cost</label>
+                  <input type="text" name="shipping" value={formData.shipping} onChange={handleChange} placeholder="Shipping Cost" className="w-full p-3 border border-gray-300 rounded" />
+                </div>
               </div>
-              <select name="duration" value={formData.duration} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded mb-4">
-                <option value="">Select Duration *</option>
-                <option value="7">7 Days</option>
-                <option value="10">10 Days</option>
-                <option value="30">30 Days</option>
-              </select>
-              <input type="text" name="shipping" value={formData.shipping} onChange={handleChange} placeholder="Shipping Cost" className="w-full p-3 border border-gray-300 rounded" />
             </section>
           )}
 
@@ -359,7 +374,6 @@ export default function SellPage() {
 
         {/* Divider + Buttons moved outside below the card (smaller, rounded buttons) */}
         <div className="mt-6 w-full">
-          {/* thin divider line */}
           <div className="w-[900px] mx-auto border-t border-gray-200 mb-6" />
 
           <div className="w-[900px] mx-auto flex items-center justify-between">
@@ -367,42 +381,20 @@ export default function SellPage() {
               type="button"
               onClick={prevStep}
               disabled={step === 1}
-              className={`px-4 py-2 text-sm rounded-full transition ${
-                step === 1
-                  ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                  : 'bg-white text-gray-900 border border-gray-300'
-              }`}
+              className={`px-4 py-2 text-sm rounded-full transition ${step === 1 ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' : 'bg-white text-gray-900 border border-gray-300'}`}
             >
               Previous
             </button>
 
             <div>
               {step < 3 && (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  disabled={!isStepValid(step)}
-                  className={`px-4 py-2 text-sm rounded-full transition ${
-                    isStepValid(step)
-                      ? 'bg-[#1e2b44] text-white hover:bg-[#162233]'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
+                <button type="button" onClick={nextStep} disabled={!isStepValid(step)} className={`px-4 py-2 text-sm rounded-full transition ${isStepValid(step) ? 'bg-[#1e2b44] text-white hover:bg-[#162233]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
                   Next
                 </button>
               )}
 
               {step === 3 && (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  disabled={!isStepValid(step)}
-                  className={`px-4 py-2 text-sm rounded-full transition ${
-                    isStepValid(step)
-                      ? 'bg-[#1e2b44] text-white hover:bg-[#162233]'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
+                <button type="button" onClick={nextStep} disabled={!isStepValid(step)} className={`px-4 py-2 text-sm rounded-full transition ${isStepValid(step) ? 'bg-[#1e2b44] text-white hover:bg-[#162233]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
                   Publish
                 </button>
               )}
