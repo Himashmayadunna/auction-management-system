@@ -216,16 +216,16 @@ useEffect(() => {
                     <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
                     <select name="category" value={formData.category} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]">
                       <option value="">Select a category</option>
-                      <option value="art">Art & Antiques</option>
-                      <option value="watches">Watches & Jewelry</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="vehicles">Vehicles</option>
-                      <option value="fashion">Fashion & Accessories</option>
-                      <option value="collectibles">Collectibles</option>
-                      <option value="music">Musical Instruments</option>
-                      <option value="books">Books & Literature</option>
-                      <option value="home">Home & Decor</option>
-                      <option value="sports">Sports Memorabilia</option>
+                      <option value="Art & Antiques">Art & Antiques</option>
+                      <option value="Watches & Jewelry">Watches & Jewelry</option>
+                      <option value="Electronics">Electronics</option>
+                      <option value="Vehicles">Vehicles</option>
+                      <option value="Fashion & Accessories">Fashion & Accessories</option>
+                      <option value="Collectibles">Collectibles</option>
+                      <option value="Musical Instruments">Musical Instruments</option>
+                      <option value="Books & Literature">Books & Literature</option>
+                      <option value="Home & Decor">Home & Decor</option>
+                      <option value="Sports Memorabilia">Sports Memorabilia</option>
                     </select>
                   </div>
 
