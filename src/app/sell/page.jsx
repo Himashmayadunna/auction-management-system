@@ -519,7 +519,7 @@ useEffect(() => {
 
               {/* Item Image */}
 
-              <div className="w-40 h-40 flex-shrink-0 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+              <div className="w-40 h-40 flex-shrink-0 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
                 {images.length > 0 ? (
                   <img
                     src={images[0]}
