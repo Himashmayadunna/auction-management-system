@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import CustomSelect from '../components/sell/CustomSelect';
+import { useRouter } from 'next/navigation';
 
 
 export default function SellPage() {
+  const router = useRouter();
   const [step, setStep] = useState(1); 
   const [images, setImages] = useState([]);
   const [isPublishing, setIsPublishing] = useState(true);
@@ -33,9 +35,10 @@ useEffect(() => {
   if (step === 4) {
     setIsPublishing(true); // show Publishing... first
     const timer = setTimeout(() => {
-      setIsPublishing(false); // then show Finish
-      alert('Auction Created Successfully!');
-    }, 2000);
+      setIsPublishing(false); 
+      // redirect to dashboard
+      router.push('/Dashboard');
+    }, 3000); // 3 seconds
     return () => clearTimeout(timer);
   }
 }, [step]);
