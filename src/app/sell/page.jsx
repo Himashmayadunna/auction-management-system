@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import CustomSelect from '../components/sell/CustomSelect';
+
 
 export default function SellPage() {
   const [step, setStep] = useState(1); 
@@ -88,6 +90,7 @@ useEffect(() => {
   };
 
   // Step 3 fee calculations
+  
   const startingBid = parseFloat(formData.startingBid) || 0;
   const finalValueFee = startingBid * 0.1;
   const estimatedReceive = startingBid - finalValueFee;
@@ -146,7 +149,9 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 w-full flex flex-col">
+
       {/* Header */}
+
       <div className="bg-[#22304a] py-20 px-8">
         <div className="max-w-[1100px] mx-auto text-center">
           <h1 className="text-[3rem] md:text-[3rem] font-bold text-white mb-4 leading-tight" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
@@ -160,9 +165,11 @@ useEffect(() => {
       </div>
 
       {/* Stepper */}
+
       <Stepper current={step} />
 
       {/* Page-level heading */}
+
       <div className="w-[900px] mx-auto text-center mb-6">
         <h2
           className="text-xl md:text-2xl font-semibold"
@@ -174,6 +181,7 @@ useEffect(() => {
       </div>
 
       {/* Form container */}
+
       <div className="w-[900px] mx-auto mt-8">
         <div className="bg-white p-8 border border-gray-200 rounded-lg">
           <div className="mb-6">
@@ -192,6 +200,7 @@ useEffect(() => {
           </div>
 
           {/* Step 1 */}
+
           {step === 1 && (
             <section>
               <div className="space-y-6">
@@ -199,7 +208,7 @@ useEffect(() => {
                   <label className="block text-sm font-medium mb-2">
                     Auction Title <span className="text-red-500">*</span>
                   </label>
-                  <input type="text" name="title" value={formData.title} onChange={handleChange} placeholder="e.g., Vintage Rolex Submariner 1960s - Excellent Condition" className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" maxLength={80} />
+                  <input type="text" name="title" value={formData.title} onChange={handleChange} placeholder="e.g., Vintage Rolex Submariner 1960s - Excellent Condition" className="w-full p-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" maxLength={80} />
                   <p className="text-sm text-gray-500 mt-1">{`${formData.title.length}/80 characters`}</p>
                 </div>
 
@@ -207,37 +216,41 @@ useEffect(() => {
                   <label className="block text-sm font-medium mb-2">
                     Description <span className="text-red-500">*</span>
                   </label>
-                  <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Provide detailed information about your item including history, condition, provenance, and any unique features..." className="w-full p-3 border border-gray-300 rounded text-base min-h-[150px] focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" maxLength={5000} />
+                  <textarea name="description" value={formData.description} onChange={handleChange} placeholder="Provide detailed information about your item including history, condition, provenance, and any unique features..." className="w-full p-3 border border-gray-300 rounded-xl text-base min-h-[150px] focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" maxLength={5000} />
                   <p className="text-sm text-gray-500 mt-1">{`${formData.description.length}/5000 characters`}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Category <span className="text-red-500">*</span></label>
-                    <select name="category" value={formData.category} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]">
-                      <option value="">Select a category</option>
-                      <option value="Art & Antiques">Art & Antiques</option>
-                      <option value="Watches & Jewelry">Watches & Jewelry</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Vehicles">Vehicles</option>
-                      <option value="Fashion & Accessories">Fashion & Accessories</option>
-                      <option value="Collectibles">Collectibles</option>
-                      <option value="Musical Instruments">Musical Instruments</option>
-                      <option value="Books & Literature">Books & Literature</option>
-                      <option value="Home & Decor">Home & Decor</option>
-                      <option value="Sports Memorabilia">Sports Memorabilia</option>
-                    </select>
+                    
+                    <CustomSelect
+                       label="Category"
+                         options={[
+                            "Art & Antiques",
+                            "Watches & Jewelry",
+                            "Electronics",
+                            "Vehicles",
+                            "Fashion & Accessories",
+                             "Collectibles",
+                             "Musical Instruments",
+                              "Books & Literature",
+                             "Home & Decor",
+                             "Sports Memorabilia",
+                            ]}
+                         value={formData.category}
+                         onChange={(val) => setFormData((p) => ({ ...p, category: val }))}
+                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium mb-2">Location <span className="text-red-500">*</span></label>
-                    <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="City, State/Country" className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" />
+                    <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="City, State/Country" className="w-full p-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2">Tags (Optional)</label>
-                  <input type="text" name="tags" value={formData.tags} onChange={handleChange} placeholder="vintage, luxury, collectible, rare (comma separated)" className="w-full p-3 border border-gray-300 rounded text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" />
+                  <input type="text" name="tags" value={formData.tags} onChange={handleChange} placeholder="vintage, luxury, collectible, rare (comma separated)" className="w-full p-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]" />
                   <p className="text-sm text-gray-500 mt-1">Help buyers find your item with relevant keywords</p>
                 </div>
               </div>
@@ -245,94 +258,101 @@ useEffect(() => {
           )}
 
           {/* Step 2 */}
+
           {step === 2 && (
             <section>
               <div className="space-y-8">
                 
                 {/* Photos (TOP) */}
-<div>
-  <label className="block text-sm font-medium mb-3">
-    Photos <span className="text-red-500">*</span>
-  </label>
 
-  <div className="flex flex-col gap-4">
-    {/* Upload box always visible */}
-    <label className="flex items-center justify-center w-40 h-40 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:border-gray-400 bg-gray-50">
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handleImageUpload}
-        style={{ display: 'none' }}
-      />
-      <div className="text-center">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="mx-auto mb-2"
-          width="32"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#6b7280"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
-          <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-        <div className="text-sm text-gray-600">Upload Photos</div>
-      </div>
-    </label>
+                <div>
+                  <label className="block text-sm font-medium mb-3">
+                    Photos <span className="text-red-500">*</span>
+                  </label>
 
-    {/* Previews */}
-    {images.length > 0 && (
-      <div className="flex flex-wrap gap-3">
-        {images.map((src, i) => (
-          <div
-            key={i}
-            className="relative w-28 h-28 rounded-md overflow-hidden border border-gray-200"
-          >
-            <img
-              src={src}
-              alt={`preview-${i}`}
-              className="object-cover w-full h-full"
-            />
-            <button
-              onClick={() => removeImage(i)}
-              className="absolute top-1 right-1 bg-white border border-gray-300 rounded-full w-6 h-6 flex items-center justify-center text-gray-600 shadow-sm hover:bg-gray-100"
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-    )}
+                  <div className="flex flex-wrap gap-4">
 
-    {/* Helper text */}
-    <p className="text-sm text-gray-500">
-      Upload up to 10 high-quality images. First image will be your main photo.
-    </p>
-  </div>
-</div>
+                    {/* Uploaded images */}
+
+                    {images.map((src, i) => (
+                      <div
+                        key={i}
+                        className="relative w-32 h-32 rounded-md overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center"
+                      >
+                        <img
+                          src={src}
+                          alt={`preview-${i}`}
+                          className="object-cover w-full h-full"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(i)}
+                          className="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow hover:bg-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Upload box (always visible until 10 images) */}
+
+                    {images.length < 10 && (
+                      <label className="w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:border-gray-400 bg-gray-50">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="mb-2"
+                          width="28"
+                          height="28"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                         stroke="#6b7280"
+                         strokeWidth="2"
+                         strokeLinecap="round"
+                         strokeLinejoin="round"
+                        >
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        <span className="text-sm text-gray-600">Add Photo</span>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Helper text */}
+
+                  <p className="text-sm text-gray-500 mt-2">
+                    Upload up to 10 high-quality images. First image will be the main photo.
+                  </p>
+                </div>
+
 
 
                 {/* Condition (MIDDLE) */}
+
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Condition <span className="text-red-500">*</span>
-                  </label>
-                  <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#1e2b44]">
-                    <option value="Mint - Perfect condition">Mint - Perfect condition</option>
-                    <option value="Excellent - Minor wear">Excellent - Minor wear</option>
-                    <option value="Very Good - Light wear">Very Good - Light wear</option>
-                    <option value="Good - Visible wear">Good - Visible wear</option>
-                    <option value="Fair - Heavy wear">Fair - Heavy wear</option>
-                    <option value="Poor - Significant damage">Poor - Significant damage</option>
-                  </select>
+                  <CustomSelect
+                    label="Condition"
+                    options={[
+                      "Mint - Perfect condition",
+                      "Excellent - Minor wear",
+                      "Very Good - Light wear",
+                      "Good - Visible wear",
+                      "Fair - Heavy wear",
+                      "Poor - Significant damage",
+                    ]}
+                    value={condition}
+                    onChange={setCondition}
+                  />
                 </div>
 
                 {/* Special Features (BOTTOM) */}
+
                 <div>
                   <label className="block text-sm font-medium mb-3">Special Features</label>
 
@@ -374,10 +394,13 @@ useEffect(() => {
           )}
 
           {/* Step 3 with calculations */}
+
           {step === 3 && (
             <section>
               <div className="space-y-8">
+
                 {/* Starting Bid + Reserve Price */}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium mb-2">
@@ -391,7 +414,7 @@ useEffect(() => {
                         value={formData.startingBid}
                         onChange={handleChange}
                         placeholder="1000"
-                        className="w-full pl-7 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
+                        className="w-full pl-7 p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
                       />
                     </div>
                   </div>
@@ -408,7 +431,7 @@ useEffect(() => {
                         value={formData.reservePrice}
                         onChange={handleChange}
                         placeholder="5000"
-                        className="w-full pl-7 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
+                        className="w-full pl-7 p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
                       />
                     </div>
                     <p className="text-sm text-gray-500 mt-1">
@@ -418,26 +441,32 @@ useEffect(() => {
                 </div>
 
                 {/* Auction Duration */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Auction Duration <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="duration"
-                    value={formData.duration}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
-                  >
 
-                    <option value="1">1 Day</option>
-                    <option value="3">3 Days</option>
-                    <option value="5">5 Days</option>
-                    <option value="7">7 Days (Recommended)</option>
-                    <option value="10">10 Days</option>
-                  </select>
-                </div>
+                <div>
+          <CustomSelect
+            label="Auction Duration"
+            options={[
+              "1 Day",
+              "3 Days",
+              "5 Days",
+              "7 Days (Recommended)",
+              "10 Days",
+            ]}
+            value={
+              formData.duration
+                ? `${formData.duration} ${formData.duration === "1" ? "Day" : "Days"}`
+                : ""
+            }
+            onChange={(val) => {
+              // Extract number from string like "7 Days (Recommended)"
+              const number = val.split(" ")[0];
+              setFormData((p) => ({ ...p, duration: number }));
+            }}
+          />
+        </div>
 
                 {/* Shipping */}
+                
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Shipping Cost
@@ -450,7 +479,7 @@ useEffect(() => {
                       value={formData.shipping}
                       onChange={handleChange}
                       placeholder="0 for free shipping"
-                      className="w-full pl-7 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
+                      className="w-full pl-7 p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1e2b44]"
                     />
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
@@ -459,6 +488,7 @@ useEffect(() => {
                 </div>
 
                 {/* Fee Breakdown */}
+
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <h4 className="font-medium mb-2">Fee Breakdown</h4>
                   <div className="flex justify-between text-sm mb-1">
@@ -480,24 +510,29 @@ useEffect(() => {
 
           
           {/* Step 4 */}
-{step === 4 && (
-  <section>
-    {/* Auction Review Card */}
-    <div className="bg-gray-100 border-gray-600 rounded-lg p-6 flex gap-6">
-      {/* Item Image */}
-      <div className="w-40 h-40 flex-shrink-0 border rounded-md overflow-hidden bg-gray-50 flex items-center justify-center">
-        {images.length > 0 ? (
-          <img
-            src={images[0]}
-            alt="item-preview"
-            className="object-cover w-full h-full"
-          />
-        ) : (
-          <span className="text-sm text-gray-400">No image</span>
-        )}
-      </div>
+
+        {step === 4 && (
+          <section>
+            {/* Auction Review Card */}
+
+            <div className="bg-gray-100 border-gray-600 rounded-lg p-6 flex gap-6">
+
+              {/* Item Image */}
+
+              <div className="w-40 h-40 flex-shrink-0 border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+                {images.length > 0 ? (
+                  <img
+                    src={images[0]}
+                    alt="item-preview"
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  <span className="text-sm text-gray-400">No image</span>
+                )}
+              </div>
 
       {/* Auction Details */}
+
       <div className="flex-1 flex flex-col justify-between">
         <div>
           <span className="px-3 py-1 bg-[#22304a] rounded-full text-sm font-medium text-gray-50">
@@ -530,6 +565,7 @@ useEffect(() => {
     </div>
 
     {/* Before Publish Note */}
+
     <div className="mt-6 bg-yellow-50 border border-yellow-200 p-4 rounded-md text-sm text-yellow-800">
       <h4 className="font-semibold mb-2">Before You Publish</h4>
       <ul className="list-disc list-inside space-y-1">
@@ -544,6 +580,7 @@ useEffect(() => {
         </div>
 
         {/* Buttons */}
+
         <div className="mt-6 w-full">
           <div className="w-[900px] mx-auto border-t border-gray-200 mb-6" />
           <div className="w-[900px] mx-auto flex items-center justify-between">
