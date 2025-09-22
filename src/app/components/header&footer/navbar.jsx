@@ -66,17 +66,6 @@ const Navbar = () => {
               Sell
             </Link>
             <Link 
-              href="/watchlist" 
-              className={`font-medium transition-colors flex items-center px-3 py-2 ${
-                pathname === '/watchlist' 
-                  ? 'text-gray-900 font-semibold border-b-2 border-gray-800' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <span className="mr-2 text-sm">♡</span>
-              Watchlist
-            </Link>
-            <Link 
               href="/Dashboard" 
               className={`font-medium transition-colors px-3 py-2 ${
                 pathname === '/Dashboard' 
@@ -199,17 +188,6 @@ const Navbar = () => {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 + Sell
-              </Link>
-              <Link
-                href="/watchlist"
-                className={`block px-3 py-2 transition-colors text-sm ${
-                  pathname === '/watchlist' 
-                    ? 'text-gray-900 font-semibold bg-gray-50' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                ♡ Watchlist
               </Link>
               <Link
                 href="/dashboard"
