@@ -113,7 +113,7 @@ useEffect(() => {
                 onClick={() => goToStep(s)}
                 className={`cursor-pointer w-10 h-10 rounded-full flex items-center justify-center font-semibold text-base transition-all ${
                   isActive || isCompleted
-                    ? 'bg-[#1e2b44] text-white shadow-md'
+                    ? 'bg-[#22304a] text-white shadow-md'
                     : 'bg-white text-gray-400 border border-gray-200'
                 }`}
               >
@@ -125,12 +125,12 @@ useEffect(() => {
                   <div className="w-36 h-1 flex">
                     <div
                       className={`flex-1 h-1 transition-all ${
-                        current >= s ? 'bg-[#1e2b44]' : 'bg-gray-200'
+                        current >= s ? 'bg-[#22304a]' : 'bg-gray-200'
                       }`}
                     />
                     <div
                       className={`flex-1 h-1 transition-all ${
-                        current > s ? 'bg-[#1e2b44]' : 'bg-gray-200'
+                        current > s ? 'bg-[#22304a]' : 'bg-gray-200'
                       }`}
                     />
                   </div>
@@ -144,15 +144,15 @@ useEffect(() => {
   );
 }
 
-
   return (
-    <div className="min-h-screen bg-white text-gray-900 w-full flex flex-col">
+    <div className="min-h-screen bg-gray-50 text-gray-900 w-full flex flex-col">
       {/* Header */}
-      <div className="bg-[#1e2b44] py-20 px-8">
+      <div className="bg-[#22304a] py-20 px-8">
         <div className="max-w-[1100px] mx-auto text-center">
-          <h1 className="text-[3rem] md:text-[3.25rem] font-bold text-white mb-4 leading-tight">
-            Create Your Auction
+          <h1 className="text-[3rem] md:text-[3rem] font-bold text-white mb-4 leading-tight" style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif' }}>
+                Create Your Auction
           </h1>
+
           <p className="text-lg md:text-xl text-white">
             List your item and reach thousands of potential buyers worldwide
           </p>
@@ -175,7 +175,7 @@ useEffect(() => {
 
       {/* Form container */}
       <div className="w-[900px] mx-auto mt-8">
-        <div className="bg-white p-8 shadow-md rounded-lg">
+        <div className="bg-white p-8 border border-gray-200 rounded-lg">
           <div className="mb-6">
             <h3
               className="text-xl md:text-2xl font-semibold"
@@ -248,7 +248,7 @@ useEffect(() => {
           {step === 2 && (
             <section>
               <div className="space-y-8">
-                {/* Photos (TOP) */}
+                
                 {/* Photos (TOP) */}
 <div>
   <label className="block text-sm font-medium mb-3">
@@ -338,28 +338,21 @@ useEffect(() => {
 
                   <div className="space-y-3">
                     <label className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={features.authenticity}
-                        onChange={(e) => setFeatures((prev) => ({ ...prev, authenticity: e.target.checked }))}
-                        className={`mt-1 w-5 h-5 rounded-full border transition ${
-                          features.authenticity ? 'bg-[#1e2b44] border-[#1e2b44]' : 'border-gray-300'
-                        }`}
-                      />
-                      <div>
-                        <div className="font-medium">Authenticity Guarantee - Professionally verified</div>
-                      </div>
+                         <input type="checkbox"
+                            checked={features.authenticity}
+                            onChange={(e) =>setFeatures((prev) => ({ ...prev, authenticity: e.target.checked }))}className="circle-checkbox"/>
+                        <div>
+                          <div className="font-medium">
+                                Authenticity Guarantee - Professionally verified
+                          </div>
+                        </div>
                     </label>
 
                     <label className="flex items-start gap-3">
                       <input
                         type="checkbox"
                         checked={features.returns}
-                        onChange={(e) => setFeatures((prev) => ({ ...prev, returns: e.target.checked }))}
-                        className={`mt-1 w-5 h-5 rounded-full border transition ${
-                          features.returns ? 'bg-[#1e2b44] border-[#1e2b44]' : 'border-gray-300'
-                        }`}
-                      />
+                        onChange={(e) =>setFeatures((prev) => ({ ...prev, returns: e.target.checked }))}className="circle-checkbox"/>
                       <div>
                         <div className="font-medium">Accept Returns - 14-day return policy</div>
                       </div>
@@ -369,11 +362,7 @@ useEffect(() => {
                       <input
                         type="checkbox"
                         checked={features.premium}
-                        onChange={(e) => setFeatures((prev) => ({ ...prev, premium: e.target.checked }))}
-                        className={`mt-1 w-5 h-5 rounded-full border transition ${
-                          features.premium ? 'bg-[#1e2b44] border-[#1e2b44]' : 'border-gray-300'
-                        }`}
-                      />
+                        onChange={(e) =>setFeatures((prev) => ({ ...prev, premium: e.target.checked }))}className="circle-checkbox"/>
                       <div>
                         <div className="font-medium">Premium Listing - Featured placement (+$25)</div>
                       </div>
@@ -489,12 +478,12 @@ useEffect(() => {
             </section>
           )}
 
-          {/* Step 4 */}
+          
           {/* Step 4 */}
 {step === 4 && (
   <section>
     {/* Auction Review Card */}
-    <div className="border rounded-lg p-6 flex gap-6">
+    <div className="bg-gray-100 border-gray-600 rounded-lg p-6 flex gap-6">
       {/* Item Image */}
       <div className="w-40 h-40 flex-shrink-0 border rounded-md overflow-hidden bg-gray-50 flex items-center justify-center">
         {images.length > 0 ? (
@@ -511,7 +500,7 @@ useEffect(() => {
       {/* Auction Details */}
       <div className="flex-1 flex flex-col justify-between">
         <div>
-          <span className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-700">
+          <span className="px-3 py-1 bg-[#22304a] rounded-full text-sm font-medium text-gray-50">
             {formData.category || "No category"}
           </span>
 
@@ -522,7 +511,7 @@ useEffect(() => {
         <div className="flex items-center gap-6 mt-4 text-sm">
           <p>
             <span className="font-medium">Starting Bid:</span>{" "}
-            <span className="text-[#1e2b44] font-semibold">
+            <span className="text-[#22304a] font-semibold">
               ${formData.startingBid}
             </span>
           </p>
@@ -579,7 +568,7 @@ useEffect(() => {
                   disabled={!isStepValid(step)}
                   className={`px-4 py-2 text-sm rounded-full transition ${
                     isStepValid(step)
-                      ? 'bg-[#1e2b44] text-white hover:bg-[#162233]'
+                      ? 'bg-[#22304a] text-white hover:bg-[#162233]'
                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
                 >
@@ -594,7 +583,7 @@ useEffect(() => {
                   disabled={!isStepValid(step)}
                   className={`px-4 py-2 text-sm rounded-full transition ${
                     isStepValid(step)
-                      ? 'bg-[#1e2b44] text-white hover:bg-[#162233]'
+                      ? 'bg-[#22304a] text-white hover:bg-[#162233]'
                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
                 >
