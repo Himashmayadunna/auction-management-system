@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import CustomSelect from '../components/sell/CustomSelect';
 import { useRouter } from 'next/navigation';
+import { createAuctionItem } from "../../utils/api";
+
 
 
 export default function SellPage() {
@@ -42,6 +44,53 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }
 }, [step]);
+
+
+
+
+useEffect(() => {
+  async function publishAuction() {
+    if (step === 4) {
+      setIsPublishing(true);
+
+      try {
+        const auctionData = {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          location: formData.location,
+          tags: formData.tags,
+          startingPrice: parseFloat(formData.startingBid),
+          reservePrice: formData.reservePrice ? parseFloat(formData.reservePrice) : null,
+          duration: parseInt(formData.duration),
+          shipping: formData.shipping,
+          condition,
+          features,
+          images: JSON.stringify(images),
+          startTime: new Date(),
+          endTime: new Date(Date.now() + parseInt(formData.duration) * 24 * 60 * 60 * 1000),
+          sellerId: 1, // replace with logged-in user
+        };
+
+        const result = await createAuctionItem(auctionData);
+
+        alert("Auction created successfully! ID: " + result.id);
+        router.push("/Dashboard");
+      } catch (err) {
+        alert("Error publishing auction: " + err.message);
+        setIsPublishing(false);
+      }
+    }
+  }
+
+  publishAuction();
+}, [step]);
+
+
+
+
+
+
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files).slice(0, 10); 
@@ -652,4 +701,5 @@ useEffect(() => {
       <div className="h-24" />
     </div>
   );
+  
 }
