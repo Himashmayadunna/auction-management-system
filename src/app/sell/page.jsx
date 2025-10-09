@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import CustomSelect from '../components/sell/CustomSelect';
 import { useRouter } from 'next/navigation';
-import { createAuctionItem } from "../../utils/api";
+import { auctionAPI } from '../../lib/auctionApi';
+import { isAuthenticated, getCurrentUser } from '../../lib/api';
+
 
 
 
@@ -32,6 +34,99 @@ export default function SellPage() {
     shipping: '',
   });
 
+  // Helper function to compress or handle large image data
+  const processImageForStorage = async (imgUrl, index) => {
+    // If it's already a short URL, keep it
+    if (imgUrl.length <= 500 && !imgUrl.startsWith('data:')) {
+      return imgUrl;
+    }
+    
+    // For base64 data URLs, we need to handle them properly
+    if (imgUrl.startsWith('data:')) {
+      console.log(`🖼️ Processing base64 image ${index + 1} (${imgUrl.length} chars)`);
+      
+      try {
+        // Option 1: Try to compress the image
+        const compressedUrl = await compressBase64Image(imgUrl);
+        if (compressedUrl.length <= 500) {
+          console.log(`✅ Compressed image ${index + 1} to ${compressedUrl.length} chars`);
+          return compressedUrl;
+        }
+        
+        // Option 2: Extract just the base64 data (remove data:image/jpeg;base64, prefix)
+        const base64Data = imgUrl.split(',')[1];
+        if (base64Data && base64Data.length <= 500) {
+          console.log(`✅ Using base64 data for image ${index + 1}`);
+          return base64Data;
+        }
+        
+        // Option 3: Create a shorter identifier for the image
+        const imageHash = btoa(Math.random().toString()).substring(0, 10);
+        const shortUrl = `/uploaded/${imageHash}_${index}.jpg`;
+        console.log(`⚠️ Image ${index + 1} too large, using identifier: ${shortUrl}`);
+        
+        // Store the full image data in localStorage for potential later use
+        localStorage.setItem(`auction_image_${imageHash}`, imgUrl);
+        
+        return shortUrl;
+        
+      } catch (error) {
+        console.error(`❌ Error processing image ${index + 1}:`, error);
+        return `/rolex${index > 0 ? index + 1 : ''}.jpg`; // Fallback to placeholder
+      }
+    }
+    
+    // For other long URLs, truncate (not recommended but failsafe)
+    if (imgUrl.length > 500) {
+      console.log(`⚠️ Long URL truncated for image ${index + 1}`);
+      return imgUrl.substring(0, 500);
+    }
+    
+    return imgUrl;
+  };
+
+  // Helper function to compress base64 images
+  const compressBase64Image = (base64String) => {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Reduce image size
+          const maxWidth = 400;
+          const maxHeight = 300;
+          let { width, height } = img;
+          
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+          resolve(compressedBase64);
+        };
+        img.onerror = () => resolve(base64String); // Fallback to original
+        img.src = base64String;
+      } catch (error) {
+        resolve(base64String); // Fallback to original
+      }
+    });
+  };
+
   // Auto-simulate publishing on Step 4
 useEffect(() => {
   if (step === 4) {
@@ -48,43 +143,177 @@ useEffect(() => {
 
 
 
+// Check authentication on page load
+useEffect(() => {
+  if (!isAuthenticated()) {
+    router.push('/signin');
+    return;
+  }
+}, [router]);
+
+// Auto-publish auction when reaching step 4
 useEffect(() => {
   async function publishAuction() {
     if (step === 4) {
       setIsPublishing(true);
 
       try {
+        // Get current user
+        const currentUser = getCurrentUser();
+        
+        if (!currentUser || !currentUser.userId) {
+          throw new Error('User not authenticated. Please log in again.');
+        }
+
+        // Process images first (async operation)
+        console.log('🖼️ Processing images for storage...');
+        let processedImages = [];
+        
+        if (images.length > 0) {
+          try {
+            processedImages = await Promise.all(
+              images.map(async (imgUrl, index) => ({
+                imageUrl: await processImageForStorage(imgUrl, index),
+                altText: formData.title,
+                isPrimary: index === 0,
+                displayOrder: index + 1,
+                originalSize: imgUrl.length
+              }))
+            );
+            console.log('✅ Successfully processed all images');
+          } catch (imageError) {
+            console.error('❌ Error processing images:', imageError);
+            // Fallback to placeholder images
+            processedImages = [{
+              imageUrl: `/rolex.jpg`,
+              altText: formData.title,
+              isPrimary: true,
+              displayOrder: 1,
+              originalSize: 0
+            }];
+          }
+        }
+
+        // Prepare auction data matching backend DTOs exactly
         const auctionData = {
-          title: formData.title,
-          description: formData.description,
-          category: formData.category,
-          location: formData.location,
-          tags: formData.tags,
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          category: formData.category.trim(),
+          location: formData.location.trim(),
+          tags: formData.tags.trim(),
           startingPrice: parseFloat(formData.startingBid),
           reservePrice: formData.reservePrice ? parseFloat(formData.reservePrice) : null,
           duration: parseInt(formData.duration),
-          shipping: formData.shipping,
-          condition,
-          features,
-          images: JSON.stringify(images),
-          startTime: new Date(),
-          endTime: new Date(Date.now() + parseInt(formData.duration) * 24 * 60 * 60 * 1000),
-          sellerId: 1, // replace with logged-in user
+          shipping: formData.shipping || '0',
+          condition: condition,
+          startTime: new Date().toISOString(),
+          endTime: new Date(Date.now() + parseInt(formData.duration) * 24 * 60 * 60 * 1000).toISOString(),
+          features: {
+            authenticity: features.authenticity,
+            returns: features.returns,
+            premium: features.premium
+          },
+          images: processedImages.length > 0 ? processedImages : [{
+            imageUrl: `https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=${encodeURIComponent(formData.title || 'Auction Item')}`,
+            altText: formData.title || 'Auction Item',
+            isPrimary: true,
+            displayOrder: 1
+          }]
         };
 
-        const result = await createAuctionItem(auctionData);
+        console.log('📤 Publishing auction with data:', auctionData);
+        console.log('🖼️ Processed images info:', processedImages.map(img => ({
+          processedLength: img.imageUrl.length,
+          originalSize: img.originalSize,
+          url: img.imageUrl.substring(0, 100) + (img.imageUrl.length > 100 ? '...' : ''),
+          isPrimary: img.isPrimary
+        })));
+        
+        // Validate required fields
+        const requiredFields = [
+          { field: 'title', value: auctionData.title },
+          { field: 'description', value: auctionData.description },
+          { field: 'category', value: auctionData.category },
+          { field: 'startingPrice', value: auctionData.startingPrice }
+        ];
+        
+        const missingFields = requiredFields.filter(f => !f.value || f.value === '');
+        
+        if (missingFields.length > 0) {
+          throw new Error(`Missing required fields: ${missingFields.map(f => f.field).join(', ')}`);
+        }
 
-        alert("Auction created successfully! ID: " + result.id);
-        router.push("/Dashboard");
+        // Validate numeric fields
+        if (isNaN(auctionData.startingPrice) || auctionData.startingPrice <= 0) {
+          throw new Error('Starting price must be a positive number');
+        }
+
+        if (auctionData.reservePrice !== null && isNaN(auctionData.reservePrice)) {
+          throw new Error('Reserve price must be a valid number');
+        }
+
+        if (isNaN(auctionData.duration) || auctionData.duration <= 0) {
+          throw new Error('Duration must be a positive number');
+        }
+
+        // Validate image URLs don't exceed backend limits
+        if (auctionData.images && auctionData.images.length > 0) {
+          const longUrls = auctionData.images.filter(img => img.imageUrl && img.imageUrl.length > 500);
+          if (longUrls.length > 0) {
+            console.warn('⚠️ Some image URLs were processed to fit backend limits');
+          }
+        }
+
+        const result = await auctionAPI.createAuction(auctionData);
+
+        console.log('✅ Auction created successfully:', result);
+        
+        // Show success message
+        alert('Auction published successfully!');
+        
+        // Redirect to dashboard after short delay
+        setTimeout(() => {
+          setIsPublishing(false);
+          router.push('/Dashboard');
+        }, 1500);
       } catch (err) {
-        alert("Error publishing auction: " + err.message);
+        console.error('❌ Error publishing auction:', err);
+        console.error('📋 Form data at error:', formData);
+        console.error('🖼️ Images at error:', images);
+        console.error('⚙️ Features at error:', features);
+        console.error('📦 Condition at error:', condition);
+        
         setIsPublishing(false);
+        
+        // Show detailed error message for debugging
+        let errorMessage = "Failed to publish auction:\n\n";
+        
+        if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+          errorMessage += "Authentication Error: Your session has expired. Please log in again.";
+          setTimeout(() => router.push('/signin'), 2000);
+        } else if (err.message.includes('400') || err.message.includes('Validation')) {
+          errorMessage += "Validation Error: Please check all fields are filled correctly:\n";
+          errorMessage += "- Title (3-200 characters)\n";
+          errorMessage += "- Description (10-2000 characters)\n";
+          errorMessage += "- Starting price (positive number)\n";
+          errorMessage += "- At least one image\n";
+          errorMessage += "\nOriginal error: " + err.message;
+        } else if (err.message.includes('Network') || err.message.includes('fetch')) {
+          errorMessage += "Network Error: Cannot connect to server.\n";
+          errorMessage += "Please check if the backend is running on port 5000.\n";
+          errorMessage += "\nOriginal error: " + err.message;
+        } else {
+          errorMessage += "Error Details: " + err.message;
+          errorMessage += "\n\nPlease check the browser console for more details.";
+        }
+        
+        alert(errorMessage);
       }
     }
   }
 
   publishAuction();
-}, [step]);
+}, [step, formData, images, condition, features, router]);
 
 
 
@@ -92,17 +321,63 @@ useEffect(() => {
 
 
 
+  // Fix the image upload to handle base64 OR URLs
   const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files).slice(0, 10); 
-    const imageUrls = files.map((file) => URL.createObjectURL(file));
-    setImages((prev) => {
-      const combined = [...prev, ...imageUrls];
-      return combined.slice(0, 10);
+    const files = Array.from(e.target.files).slice(0, 10 - images.length); 
+    
+    // Show warning about image handling
+    if (files.length > 0) {
+      console.log(`📷 Uploading ${files.length} image(s). Note: Images will use placeholder URLs due to backend character limits.`);
+    }
+    
+    // Convert files to data URLs (base64) for preview
+    files.forEach((file, fileIndex) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImages((prev) => {
+          const combined = [...prev, reader.result];
+          return combined.slice(0, 10);
+        });
+      };
+      reader.readAsDataURL(file);
     });
   };
 
   const removeImage = (index) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Add validation helper
+  const validateForm = () => {
+    const errors = [];
+
+    if (!formData.title || formData.title.trim().length < 3) {
+      errors.push('Title must be at least 3 characters');
+    }
+
+    if (!formData.description || formData.description.trim().length < 10) {
+      errors.push('Description must be at least 10 characters');
+    }
+
+    if (!formData.category || formData.category.trim().length === 0) {
+      errors.push('Category is required');
+    }
+
+    if (!formData.startingBid || parseFloat(formData.startingBid) <= 0) {
+      errors.push('Starting bid must be greater than 0');
+    }
+
+    if (formData.reservePrice && parseFloat(formData.reservePrice) < parseFloat(formData.startingBid)) {
+      errors.push('Reserve price cannot be less than starting bid');
+    }
+
+    if (!formData.duration || parseInt(formData.duration) <= 0) {
+      errors.push('Duration must be selected');
+    }
+
+    // Note: Images are now optional - we'll provide a placeholder if none are uploaded
+
+    return errors;
   };
 
   const handleChange = (e) => {
@@ -668,7 +943,14 @@ useEffect(() => {
               {step === 3 && (
                 <button
                   type="button"
-                  onClick={nextStep}
+                  onClick={() => {
+                    const errors = validateForm();
+                    if (errors.length > 0) {
+                      alert('Please fix the following errors:\n\n' + errors.join('\n'));
+                    } else {
+                      nextStep();
+                    }
+                  }}
                   disabled={!isStepValid(step)}
                   className={`px-4 py-2 text-sm rounded-full transition ${
                     isStepValid(step)
@@ -676,7 +958,7 @@ useEffect(() => {
                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  Publish
+                  Review & Publish
                 </button>
               )}
 

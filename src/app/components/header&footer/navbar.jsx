@@ -194,9 +194,9 @@ const Navbar = () => {
                 + Sell
               </Link>
               <Link
-                href="/dashboard"
+                href="/Dashboard"
                 className={`block px-3 py-2 transition-colors text-sm ${
-                  pathname === '/dashboard' 
+                  pathname === '/Dashboard' 
                     ? 'text-gray-900 font-semibold bg-gray-50' 
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}

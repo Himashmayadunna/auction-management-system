@@ -1,40 +1,136 @@
 'use client';
 
-import React from 'react';
-import items from '../../../data/item.json';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { auctionAPI, auctionUtils } from '../../../lib/auctionApi';
 
 const AuctionItems = () => {
-  // Enhanced item data with additional auction properties
-  const enhancedItems = items.map((item, index) => ({
-    ...item,
-    category: getCategory(item.title),
-    location: getLocation(index),
-    rating: (4.6 + Math.random() * 0.4).toFixed(1),
-    totalBids: Math.floor(Math.random() * 50) + 15,
-    percentageIncrease: Math.floor(Math.random() * 100) + 25,
-    timeRemaining: getTimeRemaining(index),
-    isPremium: item.price > 5000, // Items over $5000 are premium
-    isEnding: index < 2, // First two items are ending soon
-    isLive: index >= 2 && index < 4, // Next two are live
-  }));
+  const [auctions, setAuctions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  function getCategory(title) {
-    if (title.includes('iPhone') || title.includes('Laptop')) return 'Electronics';
-    if (title.includes('Rolex')) return 'Watches & Jewelry';
-    if (title.includes('Backpack')) return 'Fashion & Accessories';
-    if (title.includes('Tesla') || title.includes('Rolls Royce')) return 'Vehicles';
-    return 'Collectibles';
-  }
+  console.log('🎯 AuctionItems component render - auctions:', auctions.length, 'loading:', loading);
 
-  function getLocation(index) {
-    const locations = ['New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Miami, FL', 'Seattle, WA', 'Boston, MA'];
-    return locations[index % locations.length];
-  }
+  // Helper functions for time calculations
+  const calculateTimeRemaining = (endTime) => {
+    try {
+      const now = new Date();
+      const end = new Date(endTime);
+      const difference = end.getTime() - now.getTime();
 
-  function getTimeRemaining(index) {
-    const times = ['2d 14h 30m', '18h 45m', '5d 12h 15m', '1d 8h 45m', '3d 22h 10m', '4d 16h 25m'];
-    return times[index % times.length];
-  }
+      if (difference <= 0) {
+        return { days: 0, hours: 0, minutes: 0, isExpired: true };
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+
+      return { days, hours, minutes, isExpired: false };
+    } catch (error) {
+      return { days: 1, hours: 12, minutes: 30, isExpired: false };
+    }
+  };
+
+  const isAuctionLive = (startTime, endTime) => {
+    try {
+      const now = new Date();
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      return now >= start && now <= end;
+    } catch (error) {
+      return true;
+    }
+  };
+
+  // Fetch auctions from backend
+  const fetchAuctions = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('🔧 AuctionItems: Attempting to fetch auctions from backend API');
+      
+      // Fetch auction data from backend/database ONLY
+      console.log('🔧 Fetching auctions from backend API: http://localhost:5000/api/Auctions');
+      
+      const response = await auctionAPI.getAuctions();
+      console.log('✅ Backend response received:', response);
+      
+      // Ensure we have valid data from backend
+      if (!Array.isArray(response)) {
+        throw new Error('Backend did not return valid auction array');
+      }
+      
+      if (response.length === 0) {
+        console.log('⚠️ No auctions found in database');
+        setAuctions([]);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      
+      console.log(`📦 Processing ${response.length} auctions from database`);
+      
+      // Transform backend data to match component expectations
+      const enhancedItems = (response.data || response || []).map((auction, index) => ({
+        id: auction.id,
+        title: auction.title,
+        description: auction.description,
+        category: auction.category,
+        location: auction.location || 'Location not specified',
+        price: auction.currentPrice || auction.startingPrice,
+        startingPrice: auction.startingPrice,
+        currentBid: auction.currentPrice || auction.startingPrice,
+        images: Array.isArray(auction.images) ? auction.images : [auction.images || '/rolex.jpg'],
+        rating: (4.6 + ((auction.id || index) % 4) * 0.1).toFixed(1),
+        totalBids: auction.bidCount || (15 + ((auction.id || index) % 35)),
+        percentageIncrease: 25 + ((auction.id || index) % 75),
+        timeRemaining: auction.endTime ? calculateTimeRemaining(auction.endTime) : { days: 1, hours: 12, minutes: 30, isExpired: false },
+        isPremium: auction.startingPrice > 1000, // Lower threshold for more premium items
+        isEnding: auction.endTime ? calculateTimeRemaining(auction.endTime).days < 1 : false,
+        isLive: auction.startTime && auction.endTime ? isAuctionLive(auction.startTime, auction.endTime) : true,
+        endTime: auction.endTime,
+        startTime: auction.startTime,
+        sellerId: auction.sellerId,
+        seller: auction.seller && typeof auction.seller === 'object' ? 
+          `${auction.seller.firstName || ''} ${auction.seller.lastName || ''}`.trim() || 'Anonymous' : 
+          (typeof auction.seller === 'string' ? auction.seller : 'Anonymous'),
+        condition: auction.condition || 'Good',
+        createdAt: auction.createdAt || auction.startTime
+      }));
+      
+      // Sort to show premium items first, then by creation date
+      const sortedItems = enhancedItems.sort((a, b) => {
+        if (a.isPremium && !b.isPremium) return -1;
+        if (!a.isPremium && b.isPremium) return 1;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      
+      setAuctions(sortedItems);
+      setError(null);
+      console.log('✅ Loaded', sortedItems.length, 'auctions for home page');
+      
+    } catch (err) {
+      console.error('❌ Error in fetchAuctions:', err);
+      setError(err.message);
+      setAuctions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAuctions();
+  }, []);
+
+  // Refresh auctions every 30 seconds to show newly published items
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAuctions();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-US', {
@@ -44,6 +140,66 @@ const AuctionItems = () => {
       maximumFractionDigits: 0
     }).format(price);
   };
+
+  const formatTimeRemaining = (timeData) => {
+    if (timeData.isExpired) return 'Auction ended';
+    return `${timeData.days}d ${timeData.hours}h ${timeData.minutes}m`;
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <section className="py-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="text-gray-600">Loading auctions...</div>
+        </div>
+      </section>
+    );
+  }
+
+  // Error state
+  if (error) {
+    const isDatabaseError = error.includes('SQL Server') || error.includes('database');
+    
+    return (
+      <section className="py-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-2xl mx-auto">
+            <div className="flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.084 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-red-800">
+                {isDatabaseError ? 'Database Connection Issue' : 'Connection Error'}
+              </h3>
+            </div>
+            <div className="text-red-700 mb-4">
+              {error}
+            </div>
+            
+            {isDatabaseError && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4 text-left">
+                <h4 className="font-medium text-yellow-800 mb-2">🔧 Quick Fix Steps:</h4>
+                <ol className="text-sm text-yellow-700 space-y-1">
+                  <li>1. Check if SQL Server is running on your machine</li>
+                  <li>2. Verify your backend's database connection string</li>
+                  <li>3. Run: <code className="bg-yellow-100 px-1 rounded">dotnet ef database update</code></li>
+                  <li>4. See <code className="bg-yellow-100 px-1 rounded">DATABASE_TROUBLESHOOTING.md</code> for detailed help</li>
+                </ol>
+              </div>
+            )}
+            
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-12 bg-white">
@@ -62,9 +218,13 @@ const AuctionItems = () => {
         </div>
 
         {/* Grid of auction items */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {enhancedItems.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100">
+        {auctions.length === 0 ? (
+          <div className="text-center text-gray-600">No auctions available at the moment.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {auctions.map((item) => (
+            <Link key={item.id} href={`/auction/${item.id}`}>
+              <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100 cursor-pointer">
               {/* Image and badges */}
               <div className="relative h-48 bg-gray-200">
                 <div className="absolute top-3 left-3 flex gap-2 z-10">
@@ -76,11 +236,11 @@ const AuctionItems = () => {
                 </div>
                 
                 <img
-                  src={item.image}
+                  src={Array.isArray(item.images) ? item.images[0] : item.images || '/rolex.jpg'}
                   alt={item.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    e.target.src = `https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=📷`;
+                    e.target.src = '/rolex.jpg'; // Fallback to your existing image
                   }}
                 />
               </div>
@@ -133,19 +293,23 @@ const AuctionItems = () => {
                     <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>{item.timeRemaining}</span>
+                    <span>{formatTimeRemaining(item.timeRemaining)}</span>
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
+            </Link>
           ))}
         </div>
+        )}
 
         {/* View All Button */}
         <div className="text-center mt-12">
-          <button className="bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl">
-            View All Premium Auctions
-          </button>
+          <Link href="/auctions">
+            <button className="bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl">
+              View All Premium Auctions
+            </button>
+          </Link>
         </div>
       </div>
     </section>

@@ -46,11 +46,11 @@ const EndingSoon = () => {
     ...item,
     category: getCategory(item.title),
     location: getLocation(index),
-    rating: (4.6 + Math.random() * 0.4).toFixed(1),
-    currentBid: item.price + Math.floor(Math.random() * 500),
-    totalBids: Math.floor(Math.random() * 50) + 15,
-    percentageIncrease: Math.floor(Math.random() * 100) + 25,
-    endTime: new Date(Date.now() + getRandomEndTime(index)),
+    rating: (4.6 + (index % 4) * 0.1).toFixed(1),
+    currentBid: item.price + (index % 5) * 100,
+    totalBids: 15 + (index % 35),
+    percentageIncrease: 25 + (index % 75),
+    endTime: new Date(new Date().setHours(0,0,0,0) + getRandomEndTime(index)),
     badges: item.price > 5000 ? ["Ending", "Premium"] : ["Ending"]
   }));
 
