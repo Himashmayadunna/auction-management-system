@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
+import { authAPI, setAuthData } from '@/lib/api';
 
 const Signup = () => {
   const router = useRouter();
@@ -19,6 +20,7 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -28,30 +30,59 @@ const Signup = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     // Basic validation
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
       setError('Please fill in all fields');
+      setLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
 
     if (!formData.agreeToTerms) {
       setError('Please agree to the Terms of Service and Privacy Policy');
+      setLoading(false);
       return;
     }
 
-    // Dummy signup logic
-    console.log("Signup Data:", formData);
-    // Redirect to sign in page after successful signup
-    router.push('/signin');
+    try {
+      // Map frontend accountType to backend AccountType
+      const accountTypeMap = {
+        'buy': 'Buyer',
+        'sell': 'Seller'
+      };
+
+      // Call the register API
+      const response = await authAPI.register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        accountType: accountTypeMap[formData.accountType],
+        agreeToTerms: formData.agreeToTerms,
+        receiveUpdates: formData.receiveUpdates,
+      });
+
+      // Store auth data
+      setAuthData(response);
+
+      // Redirect to dashboard after successful signup
+      router.push('/Dashboard');
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignUp = () => {
@@ -101,6 +132,7 @@ const Signup = () => {
                       checked={formData.accountType === "buy"}
                       onChange={handleChange}
                       className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
+                      disabled={loading}
                     />
                   </div>
                   <div className="ml-3 text-sm">
@@ -117,6 +149,7 @@ const Signup = () => {
                       checked={formData.accountType === "sell"}
                       onChange={handleChange}
                       className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
+                      disabled={loading}
                     />
                   </div>
                   <div className="ml-3 text-sm">
@@ -148,6 +181,7 @@ const Signup = () => {
                     placeholder="John"
                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -165,6 +199,7 @@ const Signup = () => {
                   placeholder="Doe"
                   className="block w-full px-3 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -189,6 +224,7 @@ const Signup = () => {
                   placeholder="john@example.com"
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -213,12 +249,14 @@ const Signup = () => {
                   placeholder="Create a strong password"
                   className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
+                  disabled={loading}
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+                    disabled={loading}
                   >
                     {showPassword ? (
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -255,12 +293,14 @@ const Signup = () => {
                   placeholder="Confirm your password"
                   className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
+                  disabled={loading}
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+                    disabled={loading}
                   >
                     {showConfirmPassword ? (
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -288,6 +328,7 @@ const Signup = () => {
                   onChange={handleChange}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
                   required
+                  disabled={loading}
                 />
                 <label htmlFor="agreeToTerms" className="ml-2 block text-sm text-gray-900">
                   I agree to the{' '}
@@ -309,6 +350,7 @@ const Signup = () => {
                   checked={formData.receiveUpdates}
                   onChange={handleChange}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5"
+                  disabled={loading}
                 />
                 <label htmlFor="receiveUpdates" className="ml-2 block text-sm text-gray-900">
                   Send me updates about new auctions and features
@@ -319,9 +361,10 @@ const Signup = () => {
             {/* Create Account Button */}
             <button
               type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-700 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-slate-700 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Account
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
@@ -340,6 +383,7 @@ const Signup = () => {
               <button
                 onClick={handleGoogleSignUp}
                 className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                disabled={loading}
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -353,6 +397,7 @@ const Signup = () => {
               <button
                 onClick={handleAppleSignUp}
                 className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                disabled={loading}
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12.017 8.25c1.183 0 2.367-.583 3.067-1.617-.033-.033-.067-.05-.1-.083-.85-.683-1.95-1.05-3.067-1.05-1.167 0-2.3.417-3.167 1.133.017.017.033.033.05.05.85.617 1.933.967 3.117.967zm-.85 7.133c0-1.9 1.55-3.45 3.45-3.45.367 0 .717.067 1.05.183-.15-.633-.517-1.183-1.033-1.567-.833-.617-1.883-.95-2.967-.95-1.933 0-3.55 1.05-4.4 2.5-.2.35-.317.75-.317 1.167 0 1.9 1.55 3.45 3.45 3.45.4 0 .783-.067 1.133-.183-.217-.533-.333-1.117-.333-1.75zm7.15-1.783c-.067-.833-.583-1.55-1.35-1.85-.433-.167-.9-.25-1.383-.25-1.233 0-2.367.5-3.2 1.317-.3.3-.533.65-.7 1.033.25.133.517.2.8.2 1.15 0 2.167-.617 2.733-1.567.167.033.333.083.483.15.567.25.95.783 1.017 1.4.033.317-.017.633-.133.917.283-.133.55-.317.75-.55.233-.283.35-.633.317-1z"/>
