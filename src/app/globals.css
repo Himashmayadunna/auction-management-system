@@ -24,3 +24,29 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Force all checkboxes with .circle-checkbox to render as circles */
+.circle-checkbox {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db; /* gray-300 */
+  border-radius: 50%; /* makes it a circle */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.circle-checkbox:checked {
+  background-color: #22304a; /* your theme color */
+  border-color: #22304a;
+}
+
+.circle-checkbox:checked::after {
+  content: "✔";
+  font-size: 12px;
+  color: white;
+}
