@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { auctionAPI, auctionUtils } from '../../../lib/auctionApi';
+import { getImageUrl, getPlaceholderImage } from '../../../services/imageService';
 
 const AuctionItems = () => {
   const [auctions, setAuctions] = useState([]);
@@ -56,12 +57,18 @@ const AuctionItems = () => {
       const response = await auctionAPI.getAuctions();
       console.log('✅ Backend response received:', response);
       
-      // Ensure we have valid data from backend
-      if (!Array.isArray(response)) {
+      // Handle your backend's response format: { success: true, data: [...] }
+      let auctionData = response;
+      if (response && response.data && Array.isArray(response.data)) {
+        auctionData = response.data;
+      } else if (Array.isArray(response)) {
+        auctionData = response;
+      } else {
+        console.error('❌ Backend response format:', response);
         throw new Error('Backend did not return valid auction array');
       }
       
-      if (response.length === 0) {
+      if (auctionData.length === 0) {
         console.log('⚠️ No auctions found in database');
         setAuctions([]);
         setError(null);
@@ -69,35 +76,40 @@ const AuctionItems = () => {
         return;
       }
       
-      console.log(`📦 Processing ${response.length} auctions from database`);
+      console.log(`📦 Processing ${auctionData.length} auctions from database`);
       
       // Transform backend data to match component expectations
-      const enhancedItems = (response.data || response || []).map((auction, index) => ({
-        id: auction.id,
-        title: auction.title,
-        description: auction.description,
-        category: auction.category,
-        location: auction.location || 'Location not specified',
-        price: auction.currentPrice || auction.startingPrice,
-        startingPrice: auction.startingPrice,
-        currentBid: auction.currentPrice || auction.startingPrice,
-        images: Array.isArray(auction.images) ? auction.images : [auction.images || '/rolex.jpg'],
-        rating: (4.6 + ((auction.id || index) % 4) * 0.1).toFixed(1),
-        totalBids: auction.bidCount || (15 + ((auction.id || index) % 35)),
-        percentageIncrease: 25 + ((auction.id || index) % 75),
-        timeRemaining: auction.endTime ? calculateTimeRemaining(auction.endTime) : { days: 1, hours: 12, minutes: 30, isExpired: false },
-        isPremium: auction.startingPrice > 1000, // Lower threshold for more premium items
-        isEnding: auction.endTime ? calculateTimeRemaining(auction.endTime).days < 1 : false,
-        isLive: auction.startTime && auction.endTime ? isAuctionLive(auction.startTime, auction.endTime) : true,
-        endTime: auction.endTime,
-        startTime: auction.startTime,
-        sellerId: auction.sellerId,
-        seller: auction.seller && typeof auction.seller === 'object' ? 
-          `${auction.seller.firstName || ''} ${auction.seller.lastName || ''}`.trim() || 'Anonymous' : 
-          (typeof auction.seller === 'string' ? auction.seller : 'Anonymous'),
-        condition: auction.condition || 'Good',
-        createdAt: auction.createdAt || auction.startTime
-      }));
+      const enhancedItems = auctionData.map((auction, index) => {
+        return {
+          id: auction.id || auction.auctionId,
+          title: auction.title,
+          description: auction.description,
+          category: auction.category,
+          location: auction.location || 'Location not specified',
+          price: auction.currentPrice || auction.startingPrice,
+          startingPrice: auction.startingPrice,
+          currentBid: auction.currentPrice || auction.startingPrice,
+          rating: (4.6 + ((auction.id || index) % 4) * 0.1).toFixed(1),
+          totalBids: auction.bidCount || (15 + ((auction.id || index) % 35)),
+          percentageIncrease: 25 + ((auction.id || index) % 75),
+          timeRemaining: auction.endTime ? calculateTimeRemaining(auction.endTime) : { days: 1, hours: 12, minutes: 30, isExpired: false },
+          isPremium: auction.startingPrice > 1000, // Lower threshold for more premium items
+          isEnding: auction.endTime ? calculateTimeRemaining(auction.endTime).days < 1 : false,
+          isLive: auction.startTime && auction.endTime ? isAuctionLive(auction.startTime, auction.endTime) : true,
+          endTime: auction.endTime,
+          startTime: auction.startTime,
+          sellerId: auction.sellerId,
+          seller: auction.seller && typeof auction.seller === 'object' ? 
+            `${auction.seller.firstName || ''} ${auction.seller.lastName || ''}`.trim() || 'Anonymous' : 
+            (typeof auction.seller === 'string' ? auction.seller : 'Anonymous'),
+          condition: auction.condition || 'Good',
+          createdAt: auction.createdAt || auction.startTime,
+          // Include image data from backend
+          primaryImageUrl: auction.primaryImageUrl,
+          imageUrls: auction.imageUrls,
+          images: auction.images
+        };
+      });
       
       // Sort to show premium items first, then by creation date
       const sortedItems = enhancedItems.sort((a, b) => {
@@ -109,6 +121,12 @@ const AuctionItems = () => {
       setAuctions(sortedItems);
       setError(null);
       console.log('✅ Loaded', sortedItems.length, 'auctions for home page');
+      console.log('📸 Sample auction image data:', sortedItems[0] ? {
+        id: sortedItems[0].id,
+        primaryImageUrl: sortedItems[0].primaryImageUrl,
+        imageUrls: sortedItems[0].imageUrls,
+        images: sortedItems[0].images
+      } : 'No auctions');
       
     } catch (err) {
       console.error('❌ Error in fetchAuctions:', err);
@@ -222,85 +240,114 @@ const AuctionItems = () => {
           <div className="text-center text-gray-600">No auctions available at the moment.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {auctions.map((item) => (
-            <Link key={item.id} href={`/auction/${item.id}`}>
-              <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100 cursor-pointer">
-              {/* Image and badges */}
-              <div className="relative h-48 bg-gray-200">
-                <div className="absolute top-3 left-3 flex gap-2 z-10">
-                  {item.isEnding && (
-                    <span className="bg-orange-500 text-white px-2 py-1 text-xs font-medium rounded">
-                      Ending
-                    </span>
-                  )}
-                </div>
+            {auctions.map((item) => {
+              // Get image URL with proper formatting
+              const getAuctionImageUrl = () => {
+                console.log(`🖼️ Getting image for auction ${item.id}:`, {
+                  primaryImageUrl: item.primaryImageUrl,
+                  imageUrls: item.imageUrls,
+                  images: item.images
+                });
+
+                if (item.primaryImageUrl) {
+                  console.log(`✅ Using primaryImageUrl: ${item.primaryImageUrl}`);
+                  return getImageUrl(item.primaryImageUrl);
+                }
                 
-                <img
-                  src={Array.isArray(item.images) ? item.images[0] : item.images || '/rolex.jpg'}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = '/rolex.jpg'; // Fallback to your existing image
-                  }}
-                />
-              </div>
+                if (item.imageUrls && item.imageUrls.length > 0) {
+                  console.log(`✅ Using imageUrls[0]: ${item.imageUrls[0]}`);
+                  return getImageUrl(item.imageUrls[0]);
+                }
+                
+                if (item.images && item.images.length > 0) {
+                  const firstImage = item.images[0];
+                  if (typeof firstImage === 'string') {
+                    console.log(`✅ Using images[0] as string: ${firstImage}`);
+                    return getImageUrl(firstImage);
+                  }
+                  if (firstImage.imageUrl) {
+                    console.log(`✅ Using images[0].imageUrl: ${firstImage.imageUrl}`);
+                    return getImageUrl(firstImage.imageUrl);
+                  }
+                }
+                
+                console.log(`⚠️ No image found for auction ${item.id}, using placeholder`);
+                return getPlaceholderImage();
+              };
 
-              {/* Content */}
-              <div className="p-4">
-                {/* Category and Location */}
-                <div className="flex items-center text-sm text-gray-500 mb-2">
-                  <span>{item.category}</span>
-                  <span className="mx-1">•</span>
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span>{item.location}</span>
-                </div>
+              const imageUrl = getAuctionImageUrl();
 
-                {/* Title */}
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">{item.title}</h3>
+              return (
+                <Link key={item.id} href={`/auction/${item.id}`}>
+                  <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-105 group cursor-pointer">
+                    {/* Image with Front Box Display */}
+                    <div className="relative w-full aspect-[4/3] bg-gray-200 overflow-hidden">
+                      {/* Actual Image */}
+                      <img
+                        src={imageUrl}
+                        alt={item.title}
+                        className="w-full h-full object-cover transition-opacity duration-300"
+                        onError={(e) => {
+                          e.target.src = getPlaceholderImage();
+                        }}
+                      />
 
-                {/* Seller info */}
-                <div className="flex items-center mb-3">
-                  <span className="text-blue-600 text-sm font-medium">{item.seller}</span>
-                  <div className="flex items-center ml-2">
-                    <svg className="w-4 h-4 text-yellow-400 fill-current" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span className="text-sm text-gray-600 ml-1">{item.rating}</span>
+                      {/* Time Remaining Badge - Top Right */}
+                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-md">
+                        <div className="flex items-center gap-1.5">
+                          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm font-medium text-gray-700">{formatTimeRemaining(item.timeRemaining)}</span>
+                        </div>
+                      </div>
+
+                      {/* Category Badge - Top Left */}
+                      <div className="absolute top-3 left-3 bg-[#22304a]/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-md">
+                        <span className="text-xs font-medium text-white">{item.category}</span>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-4">
+                      {/* Title */}
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#3b82f6] transition-colors">{item.title}</h3>
+
+                      {/* Price and Bids */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-0.5">Current Bid</div>
+                          <div className="text-2xl font-bold text-[#22304a]">
+                            {formatPrice(item.currentBid)}
+                          </div>
+                        </div>
+
+                        {item.totalBids > 0 && (
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500 mb-0.5">Bids</div>
+                            <div className="text-lg font-semibold text-gray-700">{item.totalBids}</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Seller Info */}
+                      {item.seller && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600 border-t pt-3">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="truncate">{item.seller}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hover Indicator */}
+                    <div className="h-1 bg-gradient-to-r from-[#3b82f6] to-[#22304a] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                   </div>
-                </div>
-
-                {/* Current Bid */}
-                <div className="mb-3">
-                  <p className="text-sm text-gray-500 mb-1">Current Bid</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xl font-bold text-gray-900">{formatPrice(item.currentBid)}</span>
-                    <span className="text-green-600 text-sm font-medium">+{item.percentageIncrease}%</span>
-                  </div>
-                </div>
-
-                {/* Bids and Time */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center text-gray-500 text-sm">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
-                    <span>{item.totalBids} bids</span>
-                  </div>
-                  <div className="flex items-center text-orange-600 text-sm">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{formatTimeRemaining(item.timeRemaining)}</span>
-                  </div>
-                </div>
-              </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+                </Link>
+              );
+            })}
+          </div>
         )}
 
         {/* View All Button */}

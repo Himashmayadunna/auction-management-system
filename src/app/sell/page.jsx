@@ -1,20 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import CustomSelect from '../components/sell/CustomSelect';
+import ImageUploader from '../components/ImageUploader';
 import { useRouter } from 'next/navigation';
 import { auctionAPI } from '../../lib/auctionApi';
 import { isAuthenticated, getCurrentUser } from '../../lib/api';
 
-
-
-
 export default function SellPage() {
   const router = useRouter();
   const [step, setStep] = useState(1); 
-  const [images, setImages] = useState([]);
-  const [isPublishing, setIsPublishing] = useState(true);
+  const [selectedImageFiles, setSelectedImageFiles] = useState([]); // Files before auction is created
+  const [uploadedImages, setUploadedImages] = useState([]); // Images after upload
+  const [createdAuctionId, setCreatedAuctionId] = useState(null); // Store auction ID after creation
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [condition, setCondition] = useState('Very Good - Light wear'); 
   const [features, setFeatures] = useState({
     authenticity: false,
@@ -34,320 +34,213 @@ export default function SellPage() {
     shipping: '',
   });
 
-  // Helper function to compress or handle large image data
-  const processImageForStorage = async (imgUrl, index) => {
-    // If it's already a short URL, keep it
-    if (imgUrl.length <= 500 && !imgUrl.startsWith('data:')) {
-      return imgUrl;
+  // Check authentication on page load
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      console.log('🔐 Not authenticated - redirecting to signin');
+      router.push('/signin');
+      return;
     }
-    
-    // For base64 data URLs, we need to handle them properly
-    if (imgUrl.startsWith('data:')) {
-      console.log(`🖼️ Processing base64 image ${index + 1} (${imgUrl.length} chars)`);
-      
-      try {
-        // Option 1: Try to compress the image
-        const compressedUrl = await compressBase64Image(imgUrl);
-        if (compressedUrl.length <= 500) {
-          console.log(`✅ Compressed image ${index + 1} to ${compressedUrl.length} chars`);
-          return compressedUrl;
-        }
-        
-        // Option 2: Extract just the base64 data (remove data:image/jpeg;base64, prefix)
-        const base64Data = imgUrl.split(',')[1];
-        if (base64Data && base64Data.length <= 500) {
-          console.log(`✅ Using base64 data for image ${index + 1}`);
-          return base64Data;
-        }
-        
-        // Option 3: Create a shorter identifier for the image
-        const imageHash = btoa(Math.random().toString()).substring(0, 10);
-        const shortUrl = `/uploaded/${imageHash}_${index}.jpg`;
-        console.log(`⚠️ Image ${index + 1} too large, using identifier: ${shortUrl}`);
-        
-        // Store the full image data in localStorage for potential later use
-        localStorage.setItem(`auction_image_${imageHash}`, imgUrl);
-        
-        return shortUrl;
-        
-      } catch (error) {
-        console.error(`❌ Error processing image ${index + 1}:`, error);
-        return `/rolex${index > 0 ? index + 1 : ''}.jpg`; // Fallback to placeholder
-      }
-    }
-    
-    // For other long URLs, truncate (not recommended but failsafe)
-    if (imgUrl.length > 500) {
-      console.log(`⚠️ Long URL truncated for image ${index + 1}`);
-      return imgUrl.substring(0, 500);
-    }
-    
-    return imgUrl;
-  };
+    console.log('✅ User authenticated - can access sell page');
+  }, [router]);
 
-  // Helper function to compress base64 images
-  const compressBase64Image = (base64String) => {
-    return new Promise((resolve) => {
-      try {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // Reduce image size
-          const maxWidth = 400;
-          const maxHeight = 300;
-          let { width, height } = img;
-          
-          if (width > height) {
-            if (width > maxWidth) {
-              height = (height * maxWidth) / width;
-              width = maxWidth;
+  // Auto-publish auction when reaching step 4
+  useEffect(() => {
+    async function publishAuction() {
+      if (step === 4 && !createdAuctionId) {
+        // Check authentication first before setting loading state
+        const currentUser = getCurrentUser();
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token'); // Check both possible token keys
+        
+        if (!currentUser || !currentUser.userId || !token) {
+          console.warn('⚠️ User not authenticated, redirecting to signin');
+          console.log('Debug - User:', currentUser);
+          console.log('Debug - Token:', token ? 'exists' : 'missing');
+          alert('Please sign in to publish an auction.');
+          router.push('/signin');
+          return;
+        }
+
+        setIsPublishing(true);
+
+        try {
+          console.log('📤 Creating auction...');
+          console.log('👤 Current user:', currentUser);
+          console.log('🔐 Token exists:', !!token);
+
+          // Prepare auction data WITHOUT images (images will be uploaded separately)
+          const auctionData = {
+            title: formData.title.trim(),
+            description: formData.description.trim(),
+            category: formData.category.trim(),
+            location: formData.location.trim(),
+            tags: formData.tags.trim(),
+            startingPrice: parseFloat(formData.startingBid),
+            reservePrice: formData.reservePrice ? parseFloat(formData.reservePrice) : null,
+            duration: parseInt(formData.duration),
+            shipping: formData.shipping || '0',
+            condition: condition,
+            startTime: new Date().toISOString(),
+            endTime: new Date(Date.now() + parseInt(formData.duration) * 24 * 60 * 60 * 1000).toISOString(),
+            features: {
+              authenticityGuarantee: features.authenticity,
+              acceptReturns: features.returns,
+              premiumListing: features.premium,
+            },
+            status: 'active',
+            userId: currentUser.userId,
+          };
+
+          console.log('📋 Auction data:', auctionData);
+
+          // Validate required fields
+          if (!auctionData.title || !auctionData.description || !auctionData.category) {
+            throw new Error('Please fill in all required fields (Title, Description, Category)');
+          }
+
+          if (isNaN(auctionData.startingPrice) || auctionData.startingPrice <= 0) {
+            throw new Error('Starting price must be a positive number');
+          }
+
+          // Create auction first
+          const result = await auctionAPI.createAuction(auctionData);
+          console.log('✅ Auction created successfully:', result);
+
+          // Store the created auction ID
+          const auctionId = result.auctionId || result.id;
+          setCreatedAuctionId(auctionId);
+
+          // Now upload images if any were selected
+          if (selectedImageFiles && selectedImageFiles.length > 0) {
+            console.log(`📤 Starting image upload for ${selectedImageFiles.length} files...`);
+            console.log('📋 Files to upload:', selectedImageFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
+            
+            // Validate files are still valid File objects
+            const validFiles = selectedImageFiles.filter(f => f instanceof File);
+            if (validFiles.length !== selectedImageFiles.length) {
+              console.error('❌ Some files are not valid File objects!', {
+                total: selectedImageFiles.length,
+                valid: validFiles.length,
+                invalid: selectedImageFiles.filter(f => !(f instanceof File))
+              });
+            }
+            
+            if (validFiles.length === 0) {
+              console.error('❌ No valid files to upload!');
+              alert('Image upload failed: No valid files found. Please select images again.');
+            } else {
+              setUploadingImages(true);
+              
+              // Import uploadMultipleImages function
+              const { uploadMultipleImages } = await import('@/services/imageService');
+              
+              try {
+                const uploadResults = await uploadMultipleImages(
+                  auctionId,
+                  validFiles,
+                  (current, total, percent) => {
+                    console.log(`📤 Uploading image ${current} of ${total} (${percent}%)`);
+                  }
+                );
+
+                // Handle new return format: { successful: [...], failed: [...] }
+                const successCount = uploadResults.successful?.length || 0;
+                const failedCount = uploadResults.failed?.length || 0;
+                
+                console.log(`✅ Upload complete: ${successCount} succeeded, ${failedCount} failed`);
+                
+                if (successCount > 0) {
+                  console.log('✅ Uploaded images:', uploadResults.successful.map(r => r.data));
+                }
+                
+                if (failedCount > 0) {
+                  console.error('❌ Failed uploads:', uploadResults.failed.map(r => ({ file: r.fileName, error: r.error })));
+                  alert(`Warning: ${failedCount} image(s) failed to upload. Check console for details.`);
+                }
+                
+                setUploadingImages(false);
+              } catch (uploadError) {
+                console.error('❌ Image upload error:', uploadError);
+                setUploadingImages(false);
+                alert(`Image upload failed: ${uploadError.message}\nAuction was created but images were not uploaded.`);
+              }
             }
           } else {
-            if (height > maxHeight) {
-              width = (width * maxHeight) / height;
-              height = maxHeight;
-            }
+            console.log('ℹ️ No images to upload');
           }
           
-          canvas.width = width;
-          canvas.height = height;
+          // Show success message
+          alert('Auction published successfully!');
           
-          // Draw and compress
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
-          resolve(compressedBase64);
-        };
-        img.onerror = () => resolve(base64String); // Fallback to original
-        img.src = base64String;
-      } catch (error) {
-        resolve(base64String); // Fallback to original
-      }
-    });
-  };
+          // Redirect to auction detail page
+          setTimeout(() => {
+            setIsPublishing(false);
+            router.push(`/auction/${auctionId}`);
+          }, 500);
 
-  // Auto-simulate publishing on Step 4
-useEffect(() => {
-  if (step === 4) {
-    setIsPublishing(true); // show Publishing... first
-    const timer = setTimeout(() => {
-      setIsPublishing(false); 
-      // redirect to dashboard
-      router.push('/Dashboard');
-    }, 3000); // 3 seconds
-    return () => clearTimeout(timer);
-  }
-}, [step]);
-
-
-
-
-// Check authentication on page load
-useEffect(() => {
-  if (!isAuthenticated()) {
-    router.push('/signin');
-    return;
-  }
-}, [router]);
-
-// Auto-publish auction when reaching step 4
-useEffect(() => {
-  async function publishAuction() {
-    if (step === 4) {
-      setIsPublishing(true);
-
-      try {
-        // Get current user
-        const currentUser = getCurrentUser();
-        
-        if (!currentUser || !currentUser.userId) {
-          throw new Error('User not authenticated. Please log in again.');
-        }
-
-        // Process images first (async operation)
-        console.log('🖼️ Processing images for storage...');
-        let processedImages = [];
-        
-        if (images.length > 0) {
-          try {
-            processedImages = await Promise.all(
-              images.map(async (imgUrl, index) => ({
-                imageUrl: await processImageForStorage(imgUrl, index),
-                altText: formData.title,
-                isPrimary: index === 0,
-                displayOrder: index + 1,
-                originalSize: imgUrl.length
-              }))
-            );
-            console.log('✅ Successfully processed all images');
-          } catch (imageError) {
-            console.error('❌ Error processing images:', imageError);
-            // Fallback to placeholder images
-            processedImages = [{
-              imageUrl: `/rolex.jpg`,
-              altText: formData.title,
-              isPrimary: true,
-              displayOrder: 1,
-              originalSize: 0
-            }];
-          }
-        }
-
-        // Prepare auction data matching backend DTOs exactly
-        const auctionData = {
-          title: formData.title.trim(),
-          description: formData.description.trim(),
-          category: formData.category.trim(),
-          location: formData.location.trim(),
-          tags: formData.tags.trim(),
-          startingPrice: parseFloat(formData.startingBid),
-          reservePrice: formData.reservePrice ? parseFloat(formData.reservePrice) : null,
-          duration: parseInt(formData.duration),
-          shipping: formData.shipping || '0',
-          condition: condition,
-          startTime: new Date().toISOString(),
-          endTime: new Date(Date.now() + parseInt(formData.duration) * 24 * 60 * 60 * 1000).toISOString(),
-          features: {
-            authenticity: features.authenticity,
-            returns: features.returns,
-            premium: features.premium
-          },
-          images: processedImages.length > 0 ? processedImages : [{
-            imageUrl: `https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=${encodeURIComponent(formData.title || 'Auction Item')}`,
-            altText: formData.title || 'Auction Item',
-            isPrimary: true,
-            displayOrder: 1
-          }]
-        };
-
-        console.log('📤 Publishing auction with data:', auctionData);
-        console.log('🖼️ Processed images info:', processedImages.map(img => ({
-          processedLength: img.imageUrl.length,
-          originalSize: img.originalSize,
-          url: img.imageUrl.substring(0, 100) + (img.imageUrl.length > 100 ? '...' : ''),
-          isPrimary: img.isPrimary
-        })));
-        
-        // Validate required fields
-        const requiredFields = [
-          { field: 'title', value: auctionData.title },
-          { field: 'description', value: auctionData.description },
-          { field: 'category', value: auctionData.category },
-          { field: 'startingPrice', value: auctionData.startingPrice }
-        ];
-        
-        const missingFields = requiredFields.filter(f => !f.value || f.value === '');
-        
-        if (missingFields.length > 0) {
-          throw new Error(`Missing required fields: ${missingFields.map(f => f.field).join(', ')}`);
-        }
-
-        // Validate numeric fields
-        if (isNaN(auctionData.startingPrice) || auctionData.startingPrice <= 0) {
-          throw new Error('Starting price must be a positive number');
-        }
-
-        if (auctionData.reservePrice !== null && isNaN(auctionData.reservePrice)) {
-          throw new Error('Reserve price must be a valid number');
-        }
-
-        if (isNaN(auctionData.duration) || auctionData.duration <= 0) {
-          throw new Error('Duration must be a positive number');
-        }
-
-        // Validate image URLs don't exceed backend limits
-        if (auctionData.images && auctionData.images.length > 0) {
-          const longUrls = auctionData.images.filter(img => img.imageUrl && img.imageUrl.length > 500);
-          if (longUrls.length > 0) {
-            console.warn('⚠️ Some image URLs were processed to fit backend limits');
-          }
-        }
-
-        const result = await auctionAPI.createAuction(auctionData);
-
-        console.log('✅ Auction created successfully:', result);
-        
-        // Show success message
-        alert('Auction published successfully!');
-        
-        // Redirect to dashboard after short delay
-        setTimeout(() => {
+        } catch (err) {
+          console.error('❌ Error publishing auction:', err);
+          
           setIsPublishing(false);
-          router.push('/Dashboard');
-        }, 1500);
-      } catch (err) {
-        console.error('❌ Error publishing auction:', err);
-        console.error('📋 Form data at error:', formData);
-        console.error('🖼️ Images at error:', images);
-        console.error('⚙️ Features at error:', features);
-        console.error('📦 Condition at error:', condition);
-        
-        setIsPublishing(false);
-        
-        // Show detailed error message for debugging
-        let errorMessage = "Failed to publish auction:\n\n";
-        
-        if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-          errorMessage += "Authentication Error: Your session has expired. Please log in again.";
-          setTimeout(() => router.push('/signin'), 2000);
-        } else if (err.message.includes('400') || err.message.includes('Validation')) {
-          errorMessage += "Validation Error: Please check all fields are filled correctly:\n";
-          errorMessage += "- Title (3-200 characters)\n";
-          errorMessage += "- Description (10-2000 characters)\n";
-          errorMessage += "- Starting price (positive number)\n";
-          errorMessage += "- At least one image\n";
-          errorMessage += "\nOriginal error: " + err.message;
-        } else if (err.message.includes('Network') || err.message.includes('fetch')) {
-          errorMessage += "Network Error: Cannot connect to server.\n";
-          errorMessage += "Please check if the backend is running on port 5000.\n";
-          errorMessage += "\nOriginal error: " + err.message;
-        } else {
-          errorMessage += "Error Details: " + err.message;
-          errorMessage += "\n\nPlease check the browser console for more details.";
+          
+          // Show error message
+          let errorMessage = "Failed to publish auction:\n\n";
+          
+          if (err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Authentication Required')) {
+            errorMessage += "Authentication Error: Your session has expired. Please log in again.";
+            alert(errorMessage);
+            // Redirect to signin page
+            router.push('/signin');
+            return;
+          } else if (err.message.includes('Network') || err.message.includes('fetch')) {
+            errorMessage += "Network Error: Cannot connect to server. Please check:\n";
+            errorMessage += "1. Backend server is running on http://localhost:5000\n";
+            errorMessage += "2. Your internet connection is active\n";
+            errorMessage += "3. No firewall is blocking the connection";
+          } else if (err.message.includes('required fields')) {
+            errorMessage += err.message;
+            setTimeout(() => router.push('/signin'), 2000);
+          } else if (err.message.includes('400') || err.message.includes('Validation')) {
+            errorMessage += "Validation Error: " + err.message;
+          } else if (err.message.includes('Network') || err.message.includes('fetch')) {
+            errorMessage += "Network Error: Cannot connect to server.\nPlease check if backend is running at http://localhost:5000";
+          } else {
+            errorMessage += err.message || "Unknown error occurred";
+          }
+          
+          alert(errorMessage);
         }
-        
-        alert(errorMessage);
       }
     }
-  }
 
-  publishAuction();
-}, [step, formData, images, condition, features, router]);
+    publishAuction();
+  }, [step, createdAuctionId, formData, condition, features, router, selectedImageFiles]);
 
-
-
-
-
-
-
-  // Fix the image upload to handle base64 OR URLs
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files).slice(0, 10 - images.length); 
-    
-    // Show warning about image handling
-    if (files.length > 0) {
-      console.log(`📷 Uploading ${files.length} image(s). Note: Images will use placeholder URLs due to backend character limits.`);
-    }
-    
-    // Convert files to data URLs (base64) for preview
-    files.forEach((file, fileIndex) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImages((prev) => {
-          const combined = [...prev, reader.result];
-          return combined.slice(0, 10);
-        });
-      };
-      reader.readAsDataURL(file);
-    });
+  // Handle image file changes from ImageUploader component (before upload)
+  const handleImageFilesChange = (files) => {
+    console.log(`📷 Image selection changed: ${files.length} file(s)`);
+    console.log('📋 File details:', files.map(f => ({ 
+      name: f.name, 
+      size: `${(f.size / 1024).toFixed(2)} KB`, 
+      type: f.type,
+      lastModified: new Date(f.lastModified).toISOString()
+    })));
+    setSelectedImageFiles(files);
   };
 
-  const removeImage = (index) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+  // Handle successful image uploads
+  const handleImagesUploaded = (uploadedImgs) => {
+    console.log(`✅ Successfully uploaded ${uploadedImgs.length} images`);
+    setUploadedImages(uploadedImgs);
   };
 
-  // Add validation helper
+  // Form field change handler
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Form validation
   const validateForm = () => {
     const errors = [];
 
@@ -375,14 +268,11 @@ useEffect(() => {
       errors.push('Duration must be selected');
     }
 
-    // Note: Images are now optional - we'll provide a placeholder if none are uploaded
+    if (selectedImageFiles.length === 0 && step < 4) {
+      errors.push('At least one image is required');
+    }
 
     return errors;
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const goToStep = (n) => {
@@ -404,7 +294,7 @@ useEffect(() => {
       );
     }
     if (s === 2) {
-      return images.length > 0 && condition.trim().length > 0;
+      return selectedImageFiles.length > 0 && condition.trim().length > 0;
     }
     if (s === 3) {
       return (
@@ -590,72 +480,25 @@ useEffect(() => {
             <section>
               <div className="space-y-8">
                 
-                {/* Photos (TOP) */}
-
+                {/* Photos - NEW Image Uploader Component */}
                 <div>
                   <label className="block text-sm font-medium mb-3">
                     Photos <span className="text-red-500">*</span>
                   </label>
-
-                  <div className="flex flex-wrap gap-4">
-
-                    {/* Uploaded images */}
-
-                    {images.map((src, i) => (
-                      <div
-                        key={i}
-                        className="relative w-32 h-32 rounded-md overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center"
-                      >
-                        <img
-                          src={src}
-                          alt={`preview-${i}`}
-                          className="object-cover w-full h-full"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(i)}
-                          className="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow hover:bg-red-600"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-
-                    {/* Upload box (always visible until 10 images) */}
-
-                    {images.length < 10 && (
-                      <label className="w-32 h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:border-gray-400 bg-gray-50">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleImageUpload}
-                          className="hidden"
-                        />
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="mb-2"
-                          width="28"
-                          height="28"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                         stroke="#6b7280"
-                         strokeWidth="2"
-                         strokeLinecap="round"
-                         strokeLinejoin="round"
-                        >
-                          <path d="M12 5v14M5 12h14" />
-                        </svg>
-                        <span className="text-sm text-gray-600">Add Photo</span>
-                      </label>
-                    )}
-                  </div>
-
-                  {/* Helper text */}
-
-                  <p className="text-sm text-gray-500 mt-2">
-                    Upload up to 10 high-quality images. First image will be the main photo.
+                  
+                  <p className="text-sm text-gray-600 mb-4">
+                    {createdAuctionId 
+                      ? 'Upload high-quality images of your item. Images will be uploaded to the server.' 
+                      : 'Select images now. They will be uploaded after you create the auction.'}
                   </p>
+
+                  <ImageUploader 
+                    auctionId={createdAuctionId}
+                    maxImages={10}
+                    onImagesChange={handleImageFilesChange}
+                    onUploadComplete={handleImagesUploaded}
+                    existingImages={uploadedImages}
+                  />
                 </div>
 
 
@@ -847,9 +690,9 @@ useEffect(() => {
               {/* Item Image */}
 
               <div className="w-40 h-40 flex-shrink-0 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
-                {images.length > 0 ? (
+                {selectedImageFiles.length > 0 ? (
                   <img
-                    src={images[0]}
+                    src={URL.createObjectURL(selectedImageFiles[0])}
                     alt="item-preview"
                     className="object-cover w-full h-full"
                   />
@@ -972,7 +815,11 @@ useEffect(() => {
         : 'bg-green-600 text-white'
     }`}
   >
-    {isPublishing ? 'Publishing...' : 'Finish'}
+    {uploadingImages 
+      ? 'Uploading Images...' 
+      : isPublishing 
+        ? 'Publishing...' 
+        : 'Finish'}
   </button>
 )}
             </div>

@@ -2,7 +2,7 @@
 import { getAuthToken, getCurrentUser } from './api.js';
 
 // API Base URL - Make sure this matches your running backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5277/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 // Helper function to make authenticated requests
 const apiRequest = async (endpoint, options = {}) => {
@@ -25,6 +25,26 @@ const apiRequest = async (endpoint, options = {}) => {
   try {
     console.log('🌐 Making API request to:', `${API_BASE_URL}${endpoint}`);
     console.log('📝 Request config:', config);
+    
+    // Enhanced logging for auction creation requests
+    if (config.method === 'POST' && endpoint === '/Auctions' && config.body) {
+      try {
+        const bodyData = JSON.parse(config.body);
+        console.log('📋 REQUEST BODY SUMMARY:');
+        console.log(`   - Title: ${bodyData.Title}`);
+        console.log(`   - Images: ${bodyData.Images ? bodyData.Images.length : 0} images`);
+        if (bodyData.Images && bodyData.Images.length > 0) {
+          console.log('   - Image details:', bodyData.Images.map(img => ({
+            hasUrl: !!img.ImageUrl,
+            urlType: img.ImageUrl ? (img.ImageUrl.startsWith('data:') ? 'Base64' : 'URL') : 'None',
+            length: img.ImageUrl ? img.ImageUrl.length : 0,
+            isPrimary: img.IsPrimary
+          })));
+        }
+      } catch (e) {
+        console.log('📋 Could not parse request body for logging');
+      }
+    }
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     
@@ -60,19 +80,141 @@ const apiRequest = async (endpoint, options = {}) => {
         errorMessage = '🔐 Authentication Required: Please sign in to access this resource.';
       }
       
-      console.error('❌ API Error:', { status: response.status, data, errorMessage });
+      // Only log as error if it's not an expected auth issue
+      if (response.status !== 401) {
+        console.error('❌ API Error:', { status: response.status, data, errorMessage });
+      } else {
+        console.warn('⚠️ Authentication required for:', `${API_BASE_URL}${endpoint}`);
+      }
       throw new Error(errorMessage);
     }
 
     return data;
   } catch (error) {
-    console.error('❌ API Request Error:', {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
-    });
+    // Only log detailed errors for non-auth issues
+    if (!error.message?.includes('Authentication Required')) {
+      console.error('❌ API Request Error:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+    }
     throw error;
   }
+};
+
+// Helper function to transform image URLs from backend  
+const transformImageUrls = (auction) => {
+  let imageUrls = [];
+  
+  // Priority 1: Check for primaryImageUrl (this is what your backend returns)
+  const primaryUrl = auction.primaryImageUrl || auction.PrimaryImageUrl;
+  if (primaryUrl && primaryUrl.trim() !== '') {
+    let fullUrl;
+    
+    // Handle different URL formats from backend
+    if (primaryUrl.startsWith('data:')) {
+      // Base64 image from database - this is what we want!
+      console.log('✅ Found base64 image data from database:', primaryUrl.substring(0, 50) + '...');
+      fullUrl = primaryUrl;
+      imageUrls = [fullUrl];
+      return imageUrls;
+    } else if (primaryUrl.startsWith('http://localhost:5000') || primaryUrl.startsWith('https://')) {
+      // Proper backend URL
+      console.log('✅ Found backend URL from database:', primaryUrl);
+      fullUrl = primaryUrl;
+      imageUrls = [fullUrl];
+      return imageUrls;
+    } else if (primaryUrl.startsWith('/uploaded/') || primaryUrl.startsWith('uploaded/')) {
+      // Backend relative URL - convert to full URL
+      const cleanPath = primaryUrl.startsWith('/') ? primaryUrl : '/' + primaryUrl;
+      fullUrl = `http://localhost:5000${cleanPath}`;
+      console.log('✅ Converted backend relative URL to full URL:', fullUrl);
+      imageUrls = [fullUrl];
+      return imageUrls;
+    } else {
+      // Other paths - try to construct backend URL
+      const cleanPath = primaryUrl.startsWith('/') ? primaryUrl : '/' + primaryUrl;
+      fullUrl = `http://localhost:5000${cleanPath}`;
+      console.log('🔧 Attempting to construct backend URL:', fullUrl);
+      imageUrls = [fullUrl];
+      return imageUrls;
+    }
+  }
+  
+  // Priority 2: Check for images array
+  const rawImages = auction.images || auction.Images;
+  if (Array.isArray(rawImages) && rawImages.length > 0) {
+    imageUrls = rawImages.map(img => {
+      if (typeof img === 'object' && img !== null) {
+        const url = img.imageUrl || img.ImageUrl || img.url;
+        // Only accept base64 or proper backend URLs
+        if (url && url.startsWith('data:')) {
+          return url; // Base64 image
+        } else if (url && url.startsWith('http://localhost:5000')) {
+          return url; // Backend URL
+        } else if (url && url.startsWith('/uploaded/')) {
+          return `http://localhost:5000${url}`; // Convert relative backend URL
+        }
+        return null; // Reject frontend references
+      }
+      // Handle string images
+      if (typeof img === 'string') {
+        if (img.startsWith('data:') || img.startsWith('http://localhost:5000')) {
+          return img;
+        } else if (img.startsWith('/uploaded/')) {
+          return `http://localhost:5000${img}`; // Convert relative backend URL
+        }
+        return null; // Reject frontend references
+      }
+      return null;
+    }).filter(url => url !== null);
+    
+    if (imageUrls.length > 0) {
+      console.log('✅ Found valid images from database array:', imageUrls.length);
+      return imageUrls;
+    }
+  }
+  
+  // Priority 3: Check for single image string
+  if (typeof rawImages === 'string' && rawImages.trim() !== '') {
+    if (rawImages.startsWith('data:') || rawImages.startsWith('http://localhost:5000')) {
+      console.log('✅ Found valid single image from database');
+      return [rawImages];
+    }
+  }
+  
+  // No valid database images found
+  console.warn('❌ No valid database images found for auction:', auction.title || auction.Title);
+  console.warn('💡 This auction needs actual image data in the database');
+  return []; // Return empty array - no images available
+};
+
+// Helper function to transform auction from backend format (PascalCase) to frontend format (camelCase)
+const transformAuction = (auction) => {
+  const imageUrls = transformImageUrls(auction);
+  console.log('🖼️ Transformed images for auction', auction.auctionId || auction.id, '- Title:', auction.title || auction.Title, '- Images:', imageUrls);
+  
+  return {
+    id: auction.auctionId || auction.id,
+    title: auction.title || auction.Title,
+    description: auction.description || auction.Description,
+    startingPrice: auction.startingPrice || auction.StartingPrice,
+    currentPrice: auction.currentPrice || auction.CurrentPrice,
+    endTime: auction.endTime || auction.EndTime,
+    startTime: auction.startTime || auction.StartTime,
+    category: auction.category || auction.Category,
+    condition: auction.condition || auction.Condition,
+    location: auction.location || auction.Location,
+    images: imageUrls,
+    sellerId: auction.sellerId || auction.SellerId,
+    seller: auction.seller,
+    bidCount: auction.totalBids || auction.BidCount || 0,
+    viewCount: auction.viewCount || auction.ViewCount || 0,
+    status: auction.status || auction.Status,
+    isFeatured: auction.isFeatured || auction.IsFeatured || false,
+    reservePrice: auction.reservePrice || auction.ReservePrice
+  };
 };
 
 export const auctionAPI = {
@@ -117,24 +259,8 @@ export const auctionAPI = {
         Location: String(auctionData.location || '').trim() || null,
         ReservePrice: auctionData.reservePrice ? parseFloat(auctionData.reservePrice) : null,
         
-        // Handle images - convert frontend format to backend format
-        Images: auctionData.images && Array.isArray(auctionData.images) ? 
-          auctionData.images.map((img, index) => {
-            const imageUrl = typeof img === 'string' ? img : (img.imageUrl || img);
-            
-            return {
-              ImageUrl: imageUrl,
-              AltText: img.altText || auctionData.title || 'Auction Image',
-              IsPrimary: img.isPrimary || (index === 0),
-              DisplayOrder: img.displayOrder || (index + 1),
-              // Log image info for debugging
-              _debug: {
-                urlLength: imageUrl ? imageUrl.length : 0,
-                isBase64: imageUrl ? imageUrl.startsWith('data:') : false,
-                originalSize: img.originalSize || 0
-              }
-            };
-          }) : null,
+        // Images will be handled by backend file upload
+        Images: null,
         
         // Additional fields that might be expected by backend
         Tags: auctionData.tags ? String(auctionData.tags).trim() : null,
@@ -150,6 +276,23 @@ export const auctionAPI = {
 
       console.log('📤 Cleaned auction entity:', auctionEntity);
       console.log('🔐 Auth token available:', !!getAuthToken());
+
+      // ENHANCED DEBUG: Log image data being sent to backend
+      if (auctionEntity.Images) {
+        console.log('🖼️ BACKEND IMAGE DATA BEING SENT:');
+        console.log(`   - Number of images: ${auctionEntity.Images.length}`);
+        auctionEntity.Images.forEach((img, i) => {
+          console.log(`   Image ${i + 1}:`);
+          console.log(`     - ImageUrl exists: ${!!img.ImageUrl}`);
+          console.log(`     - ImageUrl type: ${img.ImageUrl ? (img.ImageUrl.startsWith('data:') ? 'Base64' : 'URL') : 'None'}`);
+          console.log(`     - ImageUrl length: ${img.ImageUrl ? img.ImageUrl.length : 0} chars`);
+          console.log(`     - IsPrimary: ${img.IsPrimary}`);
+          console.log(`     - DisplayOrder: ${img.DisplayOrder}`);
+          console.log(`     - AltText: ${img.AltText}`);
+        });
+      } else {
+        console.log('⚠️ NO IMAGES being sent to backend');
+      }
 
       // Make the API request
       const response = await apiRequest('/Auctions', {
@@ -178,54 +321,40 @@ export const auctionAPI = {
     const response = await apiRequest(`/Auctions/${auctionId}`, {
       method: 'GET',
     });
-    return response.data || response;
+    
+    const auction = response.data || response;
+    console.log('🔄 Transforming single auction:', auction);
+    
+    return transformAuction(auction);
   },
 
-  // Get all auctions (simplified - no filters to avoid column errors)
+  // Get all auctions - request large page size to get all auctions
   getAuctions: async (params = {}) => {
     try {
-      console.log('📡 Attempting to fetch auctions from backend...');
+      console.log('📡 Attempting to fetch ALL auctions with images from backend...');
       
-      // For now, just get all auctions without filters to avoid column errors
-      const response = await apiRequest(`/Auctions`, {
+      // Request all auctions by setting a large page size (1000) to ensure we get everything
+      const response = await apiRequest(`/Auctions?page=1&pageSize=1000`, {
         method: 'GET',
       });
       
       console.log('✅ Successfully fetched auctions response:', response);
       
-      // Extract auctions from response and transform PascalCase to camelCase
-      let auctions = response.data || response;
-      
-      if (!Array.isArray(auctions)) {
-        console.log('⚠️ Response is not an array:', auctions);
+      // Extract auctions from response - handle { success: true, data: [...] } format
+      let auctions = response;
+      if (response && response.data && Array.isArray(response.data)) {
+        auctions = response.data;
+      } else if (Array.isArray(response)) {
+        auctions = response;
+      } else {
+        console.log('⚠️ Response format not recognized:', response);
         return [];
       }
       
       // Transform each auction from PascalCase (backend) to camelCase (frontend)
       const transformedAuctions = auctions.map(auction => {
         console.log('🔄 Transforming auction:', auction);
-        
-        return {
-          // Map PascalCase backend fields to camelCase frontend fields
-          id: auction.auctionId || auction.id,
-          title: auction.title || auction.Title,
-          description: auction.description || auction.Description,
-          startingPrice: auction.startingPrice || auction.StartingPrice,
-          currentPrice: auction.currentPrice || auction.CurrentPrice,
-          endTime: auction.endTime || auction.EndTime,
-          startTime: auction.startTime || auction.StartTime,
-          category: auction.category || auction.Category,
-          condition: auction.condition || auction.Condition,
-          location: auction.location || auction.Location,
-          images: auction.images || auction.Images || [auction.primaryImageUrl || auction.PrimaryImageUrl || '/rolex.jpg'],
-          sellerId: auction.sellerId || auction.SellerId,
-          seller: auction.seller,
-          bidCount: auction.totalBids || auction.BidCount || 0,
-          viewCount: auction.viewCount || auction.ViewCount || 0,
-          status: auction.status || auction.Status,
-          isFeatured: auction.isFeatured || auction.IsFeatured || false,
-          reservePrice: auction.reservePrice || auction.ReservePrice
-        };
+        return transformAuction(auction);
       });
       
       console.log(`✅ Successfully transformed ${transformedAuctions.length} auctions:`, transformedAuctions);
@@ -408,6 +537,13 @@ export const auctionAPI = {
   // Get user's bidding history (JWT required)
   getUserBids: async () => {
     try {
+      // Check if user has a valid token before making the request
+      const token = getAuthToken();
+      if (!token) {
+        console.warn('⚠️ No authentication token found, skipping getUserBids');
+        return []; // Return empty array instead of throwing error
+      }
+      
       console.log('📜 Fetching user bidding history');
       
       const response = await apiRequest('/bidding/my-bids');
@@ -502,4 +638,27 @@ export const auctionUtils = {
       return `${timeLeft.minutes}m ${timeLeft.seconds}s left`;
     }
   }
+};
+
+// Image upload function for future use
+export const uploadImage = async (file) => {
+  const token = getAuthToken();
+  
+  const formData = new FormData();
+  formData.append('image', file);
+  
+  const response = await fetch(`${API_BASE_URL}/images/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+      // Don't set Content-Type for FormData - browser will set it with boundary
+    },
+    body: formData
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Image upload failed: ${response.statusText}`);
+  }
+  
+  return await response.json();
 };

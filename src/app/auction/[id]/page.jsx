@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { auctionAPI } from '../../../lib/auctionApi'
 import { isAuthenticated, getCurrentUser } from '../../../lib/api'
+import ImageGallery from '../../components/ImageGallery'
+import { getAuctionImages } from '../../../services/imageService'
 
 export default function AuctionDetailsPage() {
   const params = useParams()
@@ -15,10 +16,11 @@ export default function AuctionDetailsPage() {
   const [placingBid, setPlacingBid] = useState(false)
   const [user, setUser] = useState(null)
   const [timeRemaining, setTimeRemaining] = useState('')
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [bidHistory, setBidHistory] = useState([])
   const [bidStats, setBidStats] = useState(null)
   const [loadingBids, setLoadingBids] = useState(false)
+  const [auctionImages, setAuctionImages] = useState([])
+  const [loadingImages, setLoadingImages] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -59,6 +61,9 @@ export default function AuctionDetailsPage() {
       const minBid = (auctionDetails.currentPrice || auctionDetails.startingPrice) + 10
       setBidAmount(minBid.toString())
       
+      // Fetch auction images
+      await fetchAuctionImages(auctionDetails.id || auctionDetails.auctionId)
+      
       // Fetch bidding data
       await fetchBiddingData(auctionDetails.id)
       
@@ -67,6 +72,22 @@ export default function AuctionDetailsPage() {
       alert('Failed to load auction details. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAuctionImages = async (auctionId) => {
+    try {
+      setLoadingImages(true)
+      console.log('🖼️ Fetching auction images for auction:', auctionId)
+      
+      const images = await getAuctionImages(auctionId)
+      console.log('✅ Auction images loaded:', images)
+      setAuctionImages(images || [])
+    } catch (error) {
+      console.error('❌ Error fetching auction images:', error)
+      setAuctionImages([])
+    } finally {
+      setLoadingImages(false)
     }
   }
 
@@ -222,8 +243,7 @@ export default function AuctionDetailsPage() {
     )
   }
 
-  const images = auction.images || ['/rolex.jpg']
-  const currentImage = images[currentImageIndex] || '/rolex.jpg'
+  const images = auction.images || []
   const isAuctionEnded = timeRemaining === 'Auction Ended'
   const isOwner = user && (user.userId === auction.sellerId || user.userId === auction.seller?.userId)
 
@@ -242,77 +262,22 @@ export default function AuctionDetailsPage() {
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Image Section */}
+          {/* Image Gallery */}
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="relative">
-              <img
-                src={currentImage}
-                alt={auction.title}
-                className="w-full h-96 object-cover rounded-lg"
-                onError={(e) => {
-                  e.target.src = '/rolex.jpg'
-                }}
-              />
-              
-              {/* Image Navigation */}
-              {images.length > 1 && (
-                <>
-                  <button 
-                    onClick={() => handleImageNavigation('prev')}
-                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button 
-                    onClick={() => handleImageNavigation('next')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </>
-              )}
-              
-              {/* Image Indicators */}
-              {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                  {images.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`w-2 h-2 rounded-full ${
-                        index === currentImageIndex ? 'bg-white' : 'bg-white bg-opacity-50'
-                      }`}
-                    />
-                  ))}
+            {loadingImages ? (
+              <div className="w-full h-96 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center animate-pulse">
+                <div className="text-gray-500">Loading images...</div>
+              </div>
+            ) : auctionImages && auctionImages.length > 0 ? (
+              <ImageGallery images={auctionImages} />
+            ) : (
+              <div className="w-full h-96 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <svg className="w-32 h-32 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-gray-500">No images available</p>
                 </div>
-              )}
-            </div>
-
-            {/* Thumbnail Images */}
-            {images.length > 1 && (
-              <div className="mt-4 grid grid-cols-4 gap-2">
-                {images.slice(0, 4).map((img, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentImageIndex(index)}
-                    className={`relative h-20 rounded-lg overflow-hidden border-2 ${
-                      index === currentImageIndex ? 'border-blue-500' : 'border-gray-200'
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt={`${auction.title} ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = '/rolex.jpg'
-                      }}
-                    />
-                  </button>
-                ))}
               </div>
             )}
           </div>

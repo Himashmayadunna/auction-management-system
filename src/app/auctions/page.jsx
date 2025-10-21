@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { auctionAPI } from "../../lib/auctionApi";
+import AuctionCard from "../components/AuctionCard";
 
 const AuctionsPage = () => {
   const [auctions, setAuctions] = useState([]);
@@ -126,54 +127,7 @@ const AuctionsPage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {auctions.map((auction) => (
-              <Link key={auction.id} href={`/auction/${auction.id}`}>
-                <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer">
-                  {/* Image */}
-                  <div className="h-48 bg-gray-200">
-                    <img
-                      src={Array.isArray(auction.images) && auction.images.length > 0 ? 
-                        auction.images[0] : 
-                        (auction.images || '/rolex.jpg')}
-                      alt={auction.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = '/rolex.jpg'; // Fallback image
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">
-                      {auction.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      {auction.description}
-                    </p>
-                    
-                    <div className="flex justify-between items-center mb-2">
-                      <div>
-                        <p className="text-xs text-gray-500">Current Bid</p>
-                        <p className="text-lg font-bold text-green-600">
-                          ${auction.currentPrice.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500">Category</p>
-                        <p className="text-sm font-medium text-gray-700">
-                          {auction.category}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-xs text-gray-500">
-                      Seller: {typeof auction.seller === 'object' && auction.seller ? 
-                        `${auction.seller.firstName || ''} ${auction.seller.lastName || ''}`.trim() || 'Anonymous' : 
-                        (auction.seller || 'Anonymous')}
-                    </div>
-                  </div>
-                </div>
-              </Link>
+              <AuctionCard key={auction.id || auction.auctionId} auction={auction} />
             ))}
           </div>
         )}
