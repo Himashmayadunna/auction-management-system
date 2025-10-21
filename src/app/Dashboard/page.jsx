@@ -81,6 +81,13 @@ export default function Dashboard() {
   // Fetch user's bids, auctions, and watchlist
   const fetchUserDashboardData = async (currentUser = null) => {
     try {
+      // Double-check authentication before making any API calls
+      if (!isAuthenticated()) {
+        console.log('🚫 Not authenticated, cannot fetch dashboard data')
+        router.push('/signin')
+        return
+      }
+      
       setDashboardLoading(true)
       
       // Use provided user data or fall back to state, with null checks
@@ -88,6 +95,7 @@ export default function Dashboard() {
       if (!userData || !userData.userId) {
         console.error('❌ No valid user data available for dashboard')
         setDashboardLoading(false)
+        router.push('/signin')
         return
       }
       
@@ -118,16 +126,38 @@ export default function Dashboard() {
       // Fetch user's bidding history using the new API
       let userBidsData = []
       try {
-        console.log('🔄 Fetching user bid history from API...')
-        const bidHistory = await auctionAPI.getUserBids()
-        console.log('📦 Raw bid history response:', bidHistory)
-        
-        // Ensure we have an array
-        const bidHistoryArray = Array.isArray(bidHistory) ? bidHistory : (bidHistory?.data ? bidHistory.data : [])
-        setBidHistoryDetails(bidHistoryArray)
-        userBidsData = bidHistoryArray
-        console.log('✅ User bid history processed:', userBidsData.length, 'bids')
+        // Check if user is still authenticated before making API call
+        const token = localStorage.getItem('authToken')
+        if (!isAuthenticated() || !token) {
+          console.log('⚠️ User not authenticated, skipping bid history fetch')
+          console.log('   Token exists:', !!token)
+          console.log('   isAuthenticated():', isAuthenticated())
+          userBidsData = []
+        } else {
+          console.log('🔄 Fetching user bid history from API...')
+          console.log('   Using token:', token.substring(0, 20) + '...')
+          const bidHistory = await auctionAPI.getUserBids()
+          console.log('📦 Raw bid history response:', bidHistory)
+          
+          // Ensure we have an array
+          const bidHistoryArray = Array.isArray(bidHistory) ? bidHistory : (bidHistory?.data ? bidHistory.data : [])
+          setBidHistoryDetails(bidHistoryArray)
+          userBidsData = bidHistoryArray
+          console.log('✅ User bid history processed:', userBidsData.length, 'bids')
+        }
       } catch (bidError) {
+        // Check if it's an authentication error (401 or token expired)
+        if (bidError.message?.includes('Authentication Required') || 
+            bidError.message?.includes('401') ||
+            bidError.message?.includes('Unauthorized')) {
+          console.warn('⚠️ Authentication error - token may be expired. Clearing auth data.')
+          // Clear invalid auth data
+          clearAuthData()
+          // Redirect to signin page
+          router.push('/signin')
+          return
+        }
+        
         console.log('⚠️ Could not fetch user bid history:', bidError.message)
         // Fallback to simulated data
         userBidsData = allAuctions.filter((auction, index) => 
@@ -311,7 +341,7 @@ export default function Dashboard() {
           <>
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div key="active-bids-card" className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-blue-50 rounded-lg">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +358,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div key="your-auctions-card" className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-yellow-50 rounded-lg">
                 <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -342,7 +372,7 @@ export default function Dashboard() {
             <div className="text-sm text-gray-500">Your Auctions</div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div key="watchlist-card" className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-red-50 rounded-lg">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -356,7 +386,7 @@ export default function Dashboard() {
             <div className="text-sm text-gray-500">Watchlist</div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div key="winning-bids-card" className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-green-50 rounded-lg">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -410,14 +440,11 @@ export default function Dashboard() {
                   <div key={auction.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4">
-                        <img
-                          src={auction.images?.[0] || '/rolex.jpg'}
-                          alt={auction?.title || 'Auction item'}
-                          className="w-16 h-16 rounded-lg object-cover"
-                          onError={(e) => {
-                            e.target.src = `https://via.placeholder.com/64x64/f3f4f6/9ca3af?text=📷`;
-                          }}
-                        />
+                        <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
                         <div className="flex-1">
                           <h3 className="font-semibold text-gray-900 mb-1">{auction?.title || 'Untitled Auction'}</h3>
                           <p className="text-sm text-gray-600 mb-2">{auction.category}</p>
@@ -522,14 +549,11 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {userBids.map((bid) => (
                 <div key={bid.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
-                  <img
-                    src={bid.auction?.images?.[0] || '/rolex.jpg'}
-                    alt={bid.auction?.title || 'Auction item'}
-                    className="w-full h-32 rounded-lg object-cover mb-3"
-                    onError={(e) => {
-                      e.target.src = `https://via.placeholder.com/300x128/f3f4f6/9ca3af?text=📷`;
-                    }}
-                  />
+                  <div className="w-full h-32 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-3">
+                    <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
                   <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{bid.auction?.title || 'Untitled Auction'}</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -579,14 +603,11 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {watchlist.map((item) => (
                 <div key={item.id} className="border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
-                  <img
-                    src={item.auction?.images?.[0] || '/rolex.jpg'}
-                    alt={item.auction?.title || 'Auction item'}
-                    className="w-full h-24 rounded-lg object-cover mb-2"
-                    onError={(e) => {
-                      e.target.src = `https://via.placeholder.com/200x96/f3f4f6/9ca3af?text=📷`;
-                    }}
-                  />
+                  <div className="w-full h-24 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-2">
+                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
                   <h4 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2">{item.auction?.title || 'Untitled Auction'}</h4>
                   <div className="text-xs text-gray-500">
                     Current: ${item.auction?.currentPrice || 0}
@@ -855,28 +876,28 @@ export default function Dashboard() {
                   <h4 className="text-lg font-semibold text-gray-900">Activity Summary</h4>
                   
                   <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="bg-blue-50 p-4 rounded-lg text-center">
+                    <div key="profile-total-bids" className="bg-blue-50 p-4 rounded-lg text-center">
                       <div className="text-2xl font-bold text-blue-600">
                         {Array.isArray(userBids) ? userBids.length : 0}
                       </div>
                       <div className="text-sm text-blue-800">Total Bids</div>
                     </div>
                     
-                    <div className="bg-green-50 p-4 rounded-lg text-center">
+                    <div key="profile-my-auctions" className="bg-green-50 p-4 rounded-lg text-center">
                       <div className="text-2xl font-bold text-green-600">
                         {Array.isArray(userAuctions) ? userAuctions.length : 0}
                       </div>
                       <div className="text-sm text-green-800">My Auctions</div>
                     </div>
                     
-                    <div className="bg-purple-50 p-4 rounded-lg text-center">
+                    <div key="profile-watchlist" className="bg-purple-50 p-4 rounded-lg text-center">
                       <div className="text-2xl font-bold text-purple-600">
                         {Array.isArray(watchlist) ? watchlist.length : 0}
                       </div>
                       <div className="text-sm text-purple-800">Watchlist Items</div>
                     </div>
                     
-                    <div className="bg-orange-50 p-4 rounded-lg text-center">
+                    <div key="profile-winning-bids" className="bg-orange-50 p-4 rounded-lg text-center">
                       <div className="text-2xl font-bold text-orange-600">
                         {Array.isArray(userBids) ? userBids.filter(bid => bid.isWinning).length : 0}
                       </div>
@@ -885,14 +906,14 @@ export default function Dashboard() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-red-50 p-4 rounded-lg text-center">
+                    <div key="profile-active-auctions" className="bg-red-50 p-4 rounded-lg text-center">
                       <div className="text-2xl font-bold text-red-600">
                         {Array.isArray(userAuctions) ? userAuctions.filter(auction => auction.status === 'Active').length : 0}
                       </div>
                       <div className="text-sm text-red-800">Active Auctions</div>
                     </div>
                     
-                    <div className="bg-indigo-50 p-4 rounded-lg text-center">
+                    <div key="profile-total-spent" className="bg-indigo-50 p-4 rounded-lg text-center">
                       <div className="text-2xl font-bold text-indigo-600">
                         $0
                       </div>

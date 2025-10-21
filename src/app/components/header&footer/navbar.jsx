@@ -113,15 +113,15 @@ const Navbar = () => {
 
             {/* Sign In Button */}
             <Link href="/signin">
-            <button className="text-gray-600 hover:text-gray-800 transition-colors font-medium px-3 py-2 text-sm">
+            <button className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200 font-medium px-4 py-2 text-sm rounded-md cursor-pointer">
               Sign In
             </button>
             </Link>
 
-            {/* Join Now Button */}
+            {/* Sign Up Button */}
             <Link href='/signup'>
-            <button className="bg-gray-800 hover:bg-gray-900 text-white font-medium px-5 py-2 rounded-md transition-colors text-sm">
-              Join Now
+            <button className="bg-gray-800 hover:bg-gray-900 hover:shadow-md text-white font-medium px-5 py-2 rounded-md transition-all duration-200 text-sm cursor-pointer transform hover:scale-105">
+              Sign Up
             </button>
             </Link>
           </div>
@@ -218,12 +218,16 @@ const Navbar = () => {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  <button className="w-full text-left px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors text-sm">
-                    Sign In
-                  </button>
-                  <button className="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium px-3 py-2 rounded-md transition-colors text-sm">
-                    Join Now
-                  </button>
+                  <Link href="/signin">
+                    <button className="w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200 text-sm rounded-md cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}>
+                      Sign In
+                    </button>
+                  </Link>
+                  <Link href="/signup">
+                    <button className="w-full bg-gray-800 hover:bg-gray-900 hover:shadow-md text-white font-medium px-3 py-2 rounded-md transition-all duration-200 text-sm cursor-pointer transform hover:scale-105" onClick={() => setIsMobileMenuOpen(false)}>
+                      Sign Up
+                    </button>
+                  </Link>
                 </div>
               </div>
             </div>
