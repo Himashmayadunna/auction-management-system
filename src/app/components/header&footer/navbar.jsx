@@ -66,6 +66,17 @@ const Navbar = () => {
               Sell
             </Link>
             <Link 
+              href="/watchlist" 
+              className={`font-medium transition-colors flex items-center px-3 py-2 ${
+                pathname === '/watchlist' 
+                  ? 'text-gray-900 font-semibold border-b-2 border-gray-800' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span className="mr-2 text-sm">♡</span>
+              Watchlist
+            </Link>
+            <Link 
               href="/Dashboard" 
               className={`font-medium transition-colors px-3 py-2 ${
                 pathname === '/Dashboard' 
@@ -112,18 +123,14 @@ const Navbar = () => {
             </button>
 
             {/* Sign In Button */}
-            <Link href="/signin">
-            <button className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200 font-medium px-4 py-2 text-sm rounded-md cursor-pointer">
+            <button className="text-gray-600 hover:text-gray-800 transition-colors font-medium px-3 py-2 text-sm">
               Sign In
             </button>
-            </Link>
 
-            {/* Sign Up Button */}
-            <Link href='/signup'>
-            <button className="bg-gray-800 hover:bg-gray-900 hover:shadow-md text-white font-medium px-5 py-2 rounded-md transition-all duration-200 text-sm cursor-pointer transform hover:scale-105">
-              Sign Up
+            {/* Join Now Button */}
+            <button className="bg-gray-800 hover:bg-gray-900 text-white font-medium px-5 py-2 rounded-md transition-colors text-sm">
+              Join Now
             </button>
-            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -194,9 +201,20 @@ const Navbar = () => {
                 + Sell
               </Link>
               <Link
-                href="/Dashboard"
+                href="/watchlist"
                 className={`block px-3 py-2 transition-colors text-sm ${
-                  pathname === '/Dashboard' 
+                  pathname === '/watchlist' 
+                    ? 'text-gray-900 font-semibold bg-gray-50' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                ♡ Watchlist
+              </Link>
+              <Link
+                href="/dashboard"
+                className={`block px-3 py-2 transition-colors text-sm ${
+                  pathname === '/dashboard' 
                     ? 'text-gray-900 font-semibold bg-gray-50' 
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
@@ -218,16 +236,12 @@ const Navbar = () => {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  <Link href="/signin">
-                    <button className="w-full text-left px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-200 text-sm rounded-md cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}>
-                      Sign In
-                    </button>
-                  </Link>
-                  <Link href="/signup">
-                    <button className="w-full bg-gray-800 hover:bg-gray-900 hover:shadow-md text-white font-medium px-3 py-2 rounded-md transition-all duration-200 text-sm cursor-pointer transform hover:scale-105" onClick={() => setIsMobileMenuOpen(false)}>
-                      Sign Up
-                    </button>
-                  </Link>
+                  <button className="w-full text-left px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors text-sm">
+                    Sign In
+                  </button>
+                  <button className="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium px-3 py-2 rounded-md transition-colors text-sm">
+                    Join Now
+                  </button>
                 </div>
               </div>
             </div>
