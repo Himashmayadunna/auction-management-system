@@ -3,49 +3,86 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Play } from 'lucide-react';
 import LiveStatistics from './LiveStatistics';
-
+import { auctionAPI } from '../../../lib/auctionApi';
+import { useRouter } from 'next/navigation';
 
 const HeroSection = () => {
+  const [featuredAuction, setFeaturedAuction] = useState(null);
   const [timeLeft, setTimeLeft] = useState({
-    days: 2,
-    hours: 14,
-    minutes: 32,
-    seconds: 45
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
   });
+  const router = useRouter();
+
+  // Fetch latest auction from backend
+  useEffect(() => {
+    const fetchFeaturedAuction = async () => {
+      try {
+        const response = await auctionAPI.getAuctions();
+        const auctionData = response.data || response || [];
+        
+        if (Array.isArray(auctionData) && auctionData.length > 0) {
+          // Get the most recently added auction (latest seller item)
+          const latestAuction = auctionData.sort((a, b) => 
+            new Date(b.createdAt || b.startTime) - new Date(a.createdAt || a.startTime)
+          )[0];
+          
+          setFeaturedAuction(latestAuction);
+        }
+      } catch (error) {
+        console.error('Error fetching featured auction:', error);
+      }
+    };
+
+    fetchFeaturedAuction();
+  }, []);
 
   // Countdown timer effect
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        let newSeconds = prev.seconds - 1;
-        let newMinutes = prev.minutes;
-        let newHours = prev.hours;
-        let newDays = prev.days;
+    if (!featuredAuction || !featuredAuction.endTime) return;
 
-        if (newSeconds < 0) {
-          newSeconds = 59;
-          newMinutes -= 1;
-        }
-        if (newMinutes < 0) {
-          newMinutes = 59;
-          newHours -= 1;
-        }
-        if (newHours < 0) {
-          newHours = 23;
-          newDays -= 1;
-        }
+    const updateTimer = () => {
+      const now = new Date();
+      const end = new Date(featuredAuction.endTime);
+      const difference = end.getTime() - now.getTime();
 
-        return {
-          days: newDays,
-          hours: newHours,
-          minutes: newMinutes,
-          seconds: newSeconds
-        };
-      });
-    }, 1000);
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60)
+        });
+      } else {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [featuredAuction]);
+
+  const handleViewAuction = () => {
+    if (featuredAuction) {
+      router.push(`/auction/${featuredAuction.id}`);
+    }
+  };
+
+  const getAuctionImage = () => {
+    if (!featuredAuction) return null;
+    
+    // Try different image sources from backend
+    if (featuredAuction.primaryImageUrl) return featuredAuction.primaryImageUrl;
+    if (featuredAuction.imageUrls && featuredAuction.imageUrls.length > 0) return featuredAuction.imageUrls[0];
+    if (featuredAuction.images && Array.isArray(featuredAuction.images) && featuredAuction.images.length > 0) {
+      return featuredAuction.images[0];
+    }
+    return null;
+  };
 
   return (
     <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen text-white">
@@ -130,47 +167,65 @@ const HeroSection = () => {
             {/* Featured Auction Card */}
             <div className="bg-slate-800/60 backdrop-blur rounded-2xl p-6 border border-slate-700">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-200">Featured Auction</h3>
-                <span className="text-xs bg-yellow-400 text-slate-900 px-2 py-1 rounded uppercase font-bold">Featured</span>
+                <h3 className="text-lg font-semibold text-gray-200">Latest Auction</h3>
+                <span className="text-xs bg-yellow-400 text-slate-900 px-2 py-1 rounded uppercase font-bold">New</span>
               </div>
               
-              {/* Auction Image Placeholder */}
-              <div className=" flex items-center justify-left mb-4">
-                <img 
-                  src="/rolex1.jpeg" 
-                  alt="Rolex Preview" 
-                  className="h-50 w-full object-contain mx-auto" 
-                  style={{ fitContent: 'contain' }}    
-                />
+              {/* Auction Image */}
+              <div className="flex items-center justify-center mb-4 bg-slate-700/50 rounded-xl overflow-hidden" style={{ height: '200px' }}>
+                {getAuctionImage() ? (
+                  <img 
+                    src={getAuctionImage()} 
+                    alt={featuredAuction?.title || "Featured Auction"} 
+                    className="max-h-full max-w-full object-contain" 
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-gray-400">
+                    <svg className="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-sm">No image available</span>
+                  </div>
+                )}
               </div>
               
-              <h4 className="text-lg font-semibold text-white mb-2">Vintage Rolex Submariner 1960s</h4>
-              <p className="text-yellow-400 text-xl font-bold mb-3">Current bid: $12,500</p>
+              <h4 className="text-lg font-semibold text-white mb-2">
+                {featuredAuction?.title || 'Loading...'}
+              </h4>
+              <p className="text-yellow-400 text-xl font-bold mb-3">
+                Current bid: ${featuredAuction ? (featuredAuction.currentPrice || featuredAuction.startingPrice).toLocaleString() : '0'}
+              </p>
               
               {/* Countdown Timer */}
-              <div className="mb-4">
-                <p className="text-sm text-gray-400 mb-2">Ends in:</p>
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  <div className="bg-slate-700 rounded p-2">
-                    <div className="text-xl font-bold">{timeLeft.days}</div>
-                    <div className="text-xs text-gray-400">days</div>
-                  </div>
-                  <div className="bg-slate-700 rounded p-2">
-                    <div className="text-xl font-bold">{timeLeft.hours}</div>
-                    <div className="text-xs text-gray-400">hrs</div>
-                  </div>
-                  <div className="bg-slate-700 rounded p-2">
-                    <div className="text-xl font-bold">{timeLeft.minutes}</div>
-                    <div className="text-xs text-gray-400">min</div>
-                  </div>
-                  <div className="bg-slate-700 rounded p-2">
-                    <div className="text-xl font-bold">{timeLeft.seconds}</div>
-                    <div className="text-xs text-gray-400">sec</div>
+              {featuredAuction && (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-400 mb-2">Ends in:</p>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="bg-slate-700 rounded p-2">
+                      <div className="text-xl font-bold">{String(timeLeft.days).padStart(2, '0')}</div>
+                      <div className="text-xs text-gray-400">days</div>
+                    </div>
+                    <div className="bg-slate-700 rounded p-2">
+                      <div className="text-xl font-bold">{String(timeLeft.hours).padStart(2, '0')}</div>
+                      <div className="text-xs text-gray-400">hrs</div>
+                    </div>
+                    <div className="bg-slate-700 rounded p-2">
+                      <div className="text-xl font-bold">{String(timeLeft.minutes).padStart(2, '0')}</div>
+                      <div className="text-xs text-gray-400">min</div>
+                    </div>
+                    <div className="bg-slate-700 rounded p-2">
+                      <div className="text-xl font-bold">{String(timeLeft.seconds).padStart(2, '0')}</div>
+                      <div className="text-xs text-gray-400">sec</div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
               
-              <button className="w-full py-3 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors flex items-center justify-center">
+              <button 
+                onClick={handleViewAuction}
+                className="w-full py-3 bg-yellow-400 text-slate-900 font-semibold rounded-lg hover:bg-yellow-300 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!featuredAuction}
+              >
                 <Play className="w-5 h-5 mr-2" />
                 View Auction
               </button>

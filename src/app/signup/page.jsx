@@ -179,7 +179,7 @@ const Signup = () => {
                     value={formData.firstName}
                     onChange={handleChange}
                     placeholder="John"
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     required
                     disabled={loading}
                   />
@@ -197,7 +197,7 @@ const Signup = () => {
                   value={formData.lastName}
                   onChange={handleChange}
                   placeholder="Doe"
-                  className="block w-full px-3 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-3 border border-gray-300 rounded-md leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                   disabled={loading}
                 />
@@ -222,7 +222,7 @@ const Signup = () => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="john@example.com"
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                   disabled={loading}
                 />
@@ -246,8 +246,8 @@ const Signup = () => {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="Create a strong password"
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="••••••••"
+                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                   disabled={loading}
                 />
@@ -290,8 +290,8 @@ const Signup = () => {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  placeholder="Confirm your password"
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="••••••••"
+                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   required
                   disabled={loading}
                 />

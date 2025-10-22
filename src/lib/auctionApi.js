@@ -403,6 +403,15 @@ export const auctionAPI = {
     return response;
   },
 
+  // Close/Complete auction (seller confirms winner)
+  closeAuction: async (auctionId, winnerId = null) => {
+    const response = await apiRequest(`/Auctions/${auctionId}/close`, {
+      method: 'POST',
+      body: JSON.stringify({ winnerId }),
+    });
+    return response.data || response;
+  },
+
   // Place a bid
   placeBid: async (auctionId, amount) => {
     const response = await apiRequest(`/Auctions/${auctionId}/bids`, {
