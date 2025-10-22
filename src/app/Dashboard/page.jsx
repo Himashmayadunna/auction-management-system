@@ -46,6 +46,31 @@ export default function Dashboard() {
     return 0;
   }
 
+  // Helper function to check if auction has ended
+  const isAuctionEnded = (auction) => {
+    if (!auction || !auction.endTime) return false;
+    const endTime = new Date(auction.endTime);
+    const now = new Date();
+    return now > endTime;
+  }
+
+  // Helper function to get auction status (considering time)
+  const getAuctionStatus = (auction) => {
+    if (!auction) return 'Unknown';
+    
+    // If already marked as Closed or Ended, return that status
+    if (auction.status === 'Closed' || auction.status === 'Ended') {
+      return auction.status;
+    }
+    
+    // Check if time has expired
+    if (isAuctionEnded(auction)) {
+      return 'Ended';
+    }
+    
+    return auction.status || 'Active';
+  }
+
   useEffect(() => {
     // Check if user is authenticated
     if (!isAuthenticated()) {
@@ -219,6 +244,105 @@ export default function Dashboard() {
     router.push('/signin')
   }
 
+  // Delete auction handler
+  const handleDeleteAuction = async (auctionOrId, auctionTitle = null) => {
+    // Handle both object and ID passed as first parameter
+    let auctionId, title;
+    
+    if (typeof auctionOrId === 'object' && auctionOrId !== null) {
+      // If an auction object is passed
+      auctionId = auctionOrId.id;
+      title = auctionOrId.title || 'this auction';
+    } else {
+      // If just the ID is passed
+      auctionId = auctionOrId;
+      title = auctionTitle || 'this auction';
+    }
+    
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${title}"?\n\nThis action cannot be undone.`
+    )
+    
+    if (!confirmDelete) {
+      return
+    }
+
+    try {
+      console.log(`🗑️ Deleting auction: ${auctionId}`)
+      
+      // Call delete API
+      await auctionAPI.deleteAuction(auctionId)
+      
+      console.log(`✅ Auction deleted successfully: ${auctionId}`)
+      
+      // Remove from local state
+      setUserAuctions(prevAuctions => 
+        prevAuctions.filter(auction => auction.id !== auctionId)
+      )
+      
+      // Show success message
+      alert('Auction deleted successfully!')
+      
+      // Optionally refresh dashboard data
+      if (user) {
+        fetchUserDashboardData(user)
+      }
+      
+    } catch (error) {
+      console.error('❌ Error deleting auction:', error)
+      alert(`Failed to delete auction: ${error.message || 'Unknown error'}`)
+    }
+  }
+
+  // Close/Complete auction handler (seller confirms winner)
+  const handleCloseAuction = async (auction) => {
+    const bidCount = calculateBidCount(auction)
+    
+    // Check if there are any bids
+    if (bidCount === 0) {
+      const confirmClose = window.confirm(
+        `Close "${auction.title}" with no bids?\n\nThis will end the auction without a winner.`
+      )
+      if (!confirmClose) return
+    } else {
+      const confirmClose = window.confirm(
+        `Close "${auction.title}"?\n\nCurrent bid: $${auction.currentPrice || auction.startingPrice}\nTotal bids: ${bidCount}\n\nThis will finalize the auction and confirm the highest bidder as the winner.`
+      )
+      if (!confirmClose) return
+    }
+
+    try {
+      console.log(`🔒 Closing auction: ${auction.id}`)
+      
+      // Call close API (backend will determine winner)
+      await auctionAPI.closeAuction(auction.id)
+      
+      console.log(`✅ Auction closed successfully: ${auction.id}`)
+      
+      // Update local state to mark as closed
+      setUserAuctions(prevAuctions => 
+        prevAuctions.map(a => 
+          a.id === auction.id 
+            ? { ...a, status: 'Closed', endTime: new Date().toISOString() } 
+            : a
+        )
+      )
+      
+      // Show success message
+      alert(`Auction "${auction.title}" has been closed successfully!${bidCount > 0 ? '\nThe highest bidder has been notified.' : ''}`)
+      
+      // Refresh dashboard data
+      if (user) {
+        fetchUserDashboardData(user)
+      }
+      
+    } catch (error) {
+      console.error('❌ Error closing auction:', error)
+      alert(`Failed to close auction: ${error.message || 'Unknown error'}`)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -311,16 +435,6 @@ export default function Dashboard() {
             My Auctions ({Array.isArray(userAuctions) ? userAuctions.length : 0})
           </button>
           <button
-            onClick={() => setActiveTab('watchlist')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'watchlist'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Watchlist ({Array.isArray(watchlist) ? watchlist.length : 0})
-          </button>
-          <button
             onClick={() => setActiveTab('profile')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'profile'
@@ -340,7 +454,7 @@ export default function Dashboard() {
         {activeTab === 'overview' && (
           <>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <div key="active-bids-card" className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-blue-50 rounded-lg">
@@ -370,20 +484,10 @@ export default function Dashboard() {
               {dashboardLoading ? '...' : userAuctions.length}
             </div>
             <div className="text-sm text-gray-500">Your Auctions</div>
-          </div>
-
-          <div key="watchlist-card" className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-red-50 rounded-lg">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
+            <div className="text-xs text-gray-400 mt-1">
+              Active: {dashboardLoading ? '...' : (Array.isArray(userAuctions) ? userAuctions.filter(a => getAuctionStatus(a) === 'Active').length : 0)} | 
+              Ended: {dashboardLoading ? '...' : (Array.isArray(userAuctions) ? userAuctions.filter(a => getAuctionStatus(a) === 'Ended').length : 0)}
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-1">
-              {dashboardLoading ? '...' : watchlist.length}
-            </div>
-            <div className="text-sm text-gray-500">Watchlist</div>
           </div>
 
           <div key="winning-bids-card" className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -406,7 +510,7 @@ export default function Dashboard() {
           {/* Your Auctions */}
           <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Your Auctions</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Your Active Auctions</h2>
               <button 
                 onClick={() => router.push('/sell')}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
@@ -420,61 +524,112 @@ export default function Dashboard() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="mt-2 text-gray-500">Loading your auctions...</p>
               </div>
-            ) : userAuctions.length === 0 ? (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No auctions yet</h3>
-                <p className="text-gray-500 mb-4">Start selling by creating your first auction</p>
-                <button 
-                  onClick={() => router.push('/sell')}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Create Auction
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {userAuctions.map((auction) => (
-                  <div key={auction.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-4">
-                        <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center flex-shrink-0">
-                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900 mb-1">{auction?.title || 'Untitled Auction'}</h3>
-                          <p className="text-sm text-gray-600 mb-2">{auction.category}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span>Starting: ${auction?.startingPrice || 0}</span>
-                            <span>Current: ${auction?.currentPrice || 0}</span>
-                            <span>Bids: {auction.bidCount || auction.bids?.length || calculateBidCount(auction)}</span>
+            ) : (() => {
+              const activeAuctions = Array.isArray(userAuctions) 
+                ? userAuctions.filter(auction => getAuctionStatus(auction) === 'Active')
+                : [];
+              
+              return activeAuctions.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No active auctions</h3>
+                  <p className="text-gray-500 mb-4">Start selling by creating your first auction</p>
+                  <button 
+                    onClick={() => router.push('/sell')}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Create Auction
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activeAuctions.slice(0, 5).map((auction) => {
+                    const status = getAuctionStatus(auction);
+                    const bidCount = calculateBidCount(auction);
+                    
+                    return (
+                      <div key={auction.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-4 flex-1">
+                            <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-gray-900 mb-1">{auction?.title || 'Untitled Auction'}</h3>
+                              <p className="text-sm text-gray-600 mb-2">{auction.category}</p>
+                              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                <span>Starting: ${auction?.startingPrice || 0}</span>
+                                <span>Current: ${auction?.currentPrice || 0}</span>
+                                <span>Bids: {bidCount}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right flex flex-col items-end gap-2">
+                            <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Active
+                            </span>
+                            <div className="text-sm text-gray-500">
+                              Ends: {auction.endTime ? new Date(auction.endTime).toLocaleDateString() : 'No end date'}
+                            </div>
+                            {bidCount > 0 && (
+                              <div className="text-xs text-blue-600">
+                                💰 {bidCount} bid{bidCount !== 1 ? 's' : ''}
+                              </div>
+                            )}
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 mt-2 flex-wrap">
+                              <button
+                                onClick={() => router.push(`/auction/${auction.id}`)}
+                                className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                                title="View auction details"
+                              >
+                                <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleCloseAuction(auction)}
+                                className="px-3 py-1.5 text-sm bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors font-medium"
+                                title="Close this auction and confirm winner"
+                              >
+                                <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Close
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAuction(auction)}
+                                className="px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
+                                title="Delete this auction"
+                              >
+                                <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Delete
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          auction.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {auction.status}
-                        </span>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {auction.endTime ? new Date(auction.endTime).toLocaleDateString() : 'No end date'}
-                        </div>
-                        {calculateBidCount(auction) > 0 && (
-                          <div className="text-xs text-blue-600 mt-1">
-                            💰 {calculateBidCount(auction)} bid{calculateBidCount(auction) !== 1 ? 's' : ''}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    );
+                  })}
+                  {activeAuctions.length > 5 && (
+                    <button
+                      onClick={() => setActiveTab('selling')}
+                      className="w-full py-2 text-blue-600 hover:text-blue-700 font-medium text-sm"
+                    >
+                      View all {activeAuctions.length} auctions →
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Recent Activity */}
@@ -578,45 +733,6 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-
-        {/* Watchlist Section */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Your Watchlist</h2>
-            <span className="text-sm text-gray-500">{watchlist.length} items</span>
-          </div>
-          
-          {dashboardLoading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-500">Loading watchlist...</p>
-            </div>
-          ) : watchlist.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No items in watchlist</h3>
-              <p className="text-gray-500">Add auctions to your watchlist to track them</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {watchlist.map((item) => (
-                <div key={item.id} className="border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
-                  <div className="w-full h-24 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-2">
-                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <h4 className="font-medium text-gray-900 text-sm mb-1 line-clamp-2">{item.auction?.title || 'Untitled Auction'}</h4>
-                  <div className="text-xs text-gray-500">
-                    Current: ${item.auction?.currentPrice || 0}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
           </>
         )}
 
@@ -678,9 +794,10 @@ export default function Dashboard() {
         {/* Selling Tab */}
         {activeTab === 'selling' && (
           <div className="space-y-6">
+            {/* Active Auctions */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">My Auctions</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Active Auctions</h2>
                 <button
                   onClick={() => router.push('/sell')}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -692,117 +809,189 @@ export default function Dashboard() {
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-              ) : (Array.isArray(userAuctions) && userAuctions.length > 0) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {userAuctions.map((auction) => (
-                    <div key={auction.id} className="border border-gray-200 rounded-lg p-4">
-                      <img
-                        src={auction?.images?.[0] || '/rolex.jpg'}
-                        alt={auction?.title || 'Auction item'}
-                        className="w-full h-32 object-cover rounded-lg mb-3"
-                      />
-                      <h3 className="font-medium text-gray-900 mb-2">{auction?.title || 'Untitled Auction'}</h3>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Current Price:</span>
-                          <span className="font-medium">${(auction?.currentPrice || auction?.startingPrice || 0).toLocaleString()}</span>
+              ) : (() => {
+                const activeAuctions = Array.isArray(userAuctions) 
+                  ? userAuctions.filter(auction => {
+                      const status = getAuctionStatus(auction);
+                      return status === 'Active';
+                    })
+                  : [];
+                
+                return activeAuctions.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {activeAuctions.map((auction) => {
+                      const status = getAuctionStatus(auction);
+                      const bidCount = calculateBidCount(auction);
+                      
+                      return (
+                        <div key={auction.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <img
+                            src={auction?.images?.[0] || '/rolex.jpg'}
+                            alt={auction?.title || 'Auction item'}
+                            className="w-full h-32 object-cover rounded-lg mb-3"
+                          />
+                          <h3 className="font-medium text-gray-900 mb-2">{auction?.title || 'Untitled Auction'}</h3>
+                          <div className="space-y-1 text-sm mb-3">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Current Price:</span>
+                              <span className="font-medium">${(auction?.currentPrice || auction?.startingPrice || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Total Bids:</span>
+                              <span className="font-medium">{bidCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Ends:</span>
+                              <span className="font-medium text-sm">
+                                {auction.endTime ? new Date(auction.endTime).toLocaleDateString() : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Status:</span>
+                              <span className="font-medium text-green-600">Active</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => router.push(`/auction/${auction.id}`)}
+                              className="flex-1 bg-blue-50 text-blue-600 py-2 px-3 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                            >
+                              <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              View
+                            </button>
+                            {status === 'Active' && (
+                              <button
+                                onClick={() => handleCloseAuction(auction)}
+                                className="flex-1 bg-green-50 text-green-600 py-2 px-3 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium"
+                                title="Close this auction and confirm winner"
+                              >
+                                <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Close
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteAuction(auction)}
+                              className="flex-1 bg-red-50 text-red-600 py-2 px-3 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                              title="Delete this auction permanently"
+                            >
+                              <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Total Bids:</span>
-                          <span className="font-medium">{calculateBidCount(auction)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Status:</span>
-                          <span className={`font-medium ${
-                            auction.status === 'Active' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {auction.status || 'Active'}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => router.push(`/auction/${auction.id}`)}
-                        className="w-full mt-3 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <p>No auctions created yet</p>
-                  <p className="text-sm">Create your first auction to start selling!</p>
-                  <button
-                    onClick={() => router.push('/sell')}
-                    className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Create Auction
-                  </button>
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <p>No active auctions</p>
+                    <p className="text-sm">Create your first auction to start selling!</p>
+                    <button
+                      onClick={() => router.push('/sell')}
+                      className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Create Auction
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
-          </div>
-        )}
 
-        {/* Watchlist Tab */}
-        {activeTab === 'watchlist' && (
-          <div className="space-y-6">
+            {/* Ended Auctions */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <h2 className="text-xl font-semibold mb-4">My Watchlist</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Ended Auctions</h2>
+                <span className="text-sm text-gray-500">
+                  {Array.isArray(userAuctions) 
+                    ? userAuctions.filter(auction => getAuctionStatus(auction) === 'Ended').length 
+                    : 0} ended
+                </span>
+              </div>
               {dashboardLoading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-              ) : (Array.isArray(watchlist) && watchlist.length > 0) ? (
-                <div className="space-y-4">
-                  {watchlist.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <img
-                          src={item.auction?.images?.[0] || '/rolex.jpg'}
-                          alt={item.auction?.title || 'Auction item'}
-                          className="w-16 h-16 object-cover rounded-lg"
-                        />
-                        <div>
-                          <h3 className="font-medium text-gray-900">{item.auction?.title || 'Untitled Auction'}</h3>
-                          <p className="text-sm text-gray-500">
-                            Current: ${(item.auction?.currentPrice || item.auction?.startingPrice).toLocaleString()}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            Added: {item.addedDate ? new Date(item.addedDate).toLocaleDateString() : 'Unknown'}
-                          </p>
+              ) : (() => {
+                const endedAuctions = Array.isArray(userAuctions) 
+                  ? userAuctions.filter(auction => getAuctionStatus(auction) === 'Ended')
+                  : [];
+                
+                return endedAuctions.length > 0 ? (
+                  <div className="space-y-4">
+                    {endedAuctions.map((auction) => {
+                      const bidCount = calculateBidCount(auction);
+                      const finalPrice = auction.currentPrice || auction.startingPrice || 0;
+                      
+                      return (
+                        <div key={auction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center space-x-4">
+                            <img
+                              src={auction?.images?.[0] || '/rolex.jpg'}
+                              alt={auction?.title || 'Auction item'}
+                              className="w-20 h-20 object-cover rounded-lg"
+                            />
+                            <div>
+                              <h3 className="font-semibold text-gray-900">{auction?.title || 'Untitled Auction'}</h3>
+                              <p className="text-sm text-gray-600">
+                                Final Price: <span className="font-semibold text-orange-600">${finalPrice.toLocaleString()}</span>
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                Total Bids: {bidCount}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                Ended: {auction.endTime ? new Date(auction.endTime).toLocaleDateString() : 'Recently'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                              Ended
+                            </span>
+                            <button
+                              onClick={() => router.push(`/auction/${auction.id}`)}
+                              className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+                            >
+                              View Details
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAuction(auction)}
+                              className="bg-red-50 text-red-600 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors"
+                              title="Remove this ended auction"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => router.push(`/auction/${item.auction.id}`)}
-                          className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          View
-                        </button>
-                        <button className="bg-red-100 text-red-600 px-3 py-1 rounded-lg hover:bg-red-200 transition-colors">
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  <p>No items in watchlist</p>
-                  <p className="text-sm">Add interesting auctions to your watchlist!</p>
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>No ended auctions</p>
+                    <p className="text-sm">Auctions that pass their end time will appear here</p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
+
+
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
@@ -890,18 +1079,18 @@ export default function Dashboard() {
                       <div className="text-sm text-green-800">My Auctions</div>
                     </div>
                     
-                    <div key="profile-watchlist" className="bg-purple-50 p-4 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {Array.isArray(watchlist) ? watchlist.length : 0}
-                      </div>
-                      <div className="text-sm text-purple-800">Watchlist Items</div>
-                    </div>
-                    
                     <div key="profile-winning-bids" className="bg-orange-50 p-4 rounded-lg text-center">
                       <div className="text-2xl font-bold text-orange-600">
                         {Array.isArray(userBids) ? userBids.filter(bid => bid.isWinning).length : 0}
                       </div>
                       <div className="text-sm text-orange-800">Winning Bids</div>
+                    </div>
+
+                    <div key="profile-closed-auctions" className="bg-gray-50 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-gray-600">
+                        {Array.isArray(userAuctions) ? userAuctions.filter(auction => auction.status === 'Closed').length : 0}
+                      </div>
+                      <div className="text-sm text-gray-800">Closed Auctions</div>
                     </div>
                   </div>
 
@@ -954,6 +1143,74 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Closed Auctions Section */}
+              <div className="bg-white p-6 rounded-lg shadow-sm mt-6">
+                <h3 className="text-xl font-semibold mb-4 text-gray-900">Closed Auctions</h3>
+                {dashboardLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : (
+                  (() => {
+                    const closedAuctions = Array.isArray(userAuctions) 
+                      ? userAuctions.filter(auction => auction.status === 'Closed')
+                      : [];
+                    
+                    return closedAuctions.length > 0 ? (
+                      <div className="space-y-4">
+                        {closedAuctions.map((auction) => {
+                          const bidCount = calculateBidCount(auction);
+                          const highestBid = auction.currentPrice || auction.startingPrice;
+                          
+                          return (
+                            <div key={auction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="flex items-center space-x-4">
+                                <img
+                                  src={auction.images?.[0] || '/rolex.jpg'}
+                                  alt={auction.title}
+                                  className="w-20 h-20 object-cover rounded-lg"
+                                />
+                                <div>
+                                  <h4 className="font-semibold text-gray-900">{auction.title}</h4>
+                                  <p className="text-sm text-gray-600">
+                                    Final Price: <span className="font-semibold text-green-600">${highestBid.toLocaleString()}</span>
+                                  </p>
+                                  <p className="text-sm text-gray-500">
+                                    Total Bids: {bidCount}
+                                  </p>
+                                  <p className="text-xs text-gray-400">
+                                    Closed: {auction.endTime ? new Date(auction.endTime).toLocaleDateString() : 'Recently'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm font-medium">
+                                  Closed
+                                </span>
+                                <button
+                                  onClick={() => router.push(`/auction/${auction.id}`)}
+                                  className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+                                >
+                                  View Details
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-lg font-medium">No Closed Auctions</p>
+                        <p className="text-sm">Your closed auctions will appear here</p>
+                      </div>
+                    );
+                  })()
+                )}
               </div>
             </div>
           </div>

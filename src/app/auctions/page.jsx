@@ -121,8 +121,83 @@ const AuctionsPage = () => {
         </div>
 
         {auctions.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-500 text-lg">No auctions available</div>
+          <div className="flex flex-col items-center justify-center py-20 px-4">
+            {/* Empty State Illustration */}
+            <div className="relative mb-8">
+              <div className="w-32 h-32 bg-gradient-to-br from-[#22304a] to-[#3a4a6a] rounded-full flex items-center justify-center shadow-2xl">
+                <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              {/* Decorative circles */}
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full animate-pulse"></div>
+              <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-400 rounded-full animate-pulse delay-75"></div>
+            </div>
+
+            {/* Empty State Text */}
+            <h3 className="text-3xl font-bold text-gray-900 mb-3">No Auctions Available</h3>
+            <p className="text-gray-600 text-lg mb-2 max-w-md text-center">
+              There are currently no active auctions to display.
+            </p>
+            <p className="text-gray-500 mb-8 max-w-md text-center">
+              Check back soon for exciting deals on premium items, or be the first to create an auction!
+            </p>
+
+            {/* Call to Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link 
+                href="/sell"
+                className="group bg-[#22304a] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#1a2538] transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+              >
+                <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Create First Auction
+              </Link>
+              
+              <Link 
+                href="/"
+                className="bg-white text-[#22304a] border-2 border-[#22304a] px-8 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Back to Home
+              </Link>
+            </div>
+
+            {/* Decorative elements */}
+            <div className="mt-16 grid grid-cols-3 gap-8 max-w-2xl w-full">
+              <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-1">Live Bidding</h4>
+                <p className="text-sm text-gray-600">Real-time auction updates</p>
+              </div>
+
+              <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-1">Secure</h4>
+                <p className="text-sm text-gray-600">Safe transactions guaranteed</p>
+              </div>
+
+              <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-1">Fast</h4>
+                <p className="text-sm text-gray-600">Quick and easy bidding</p>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
